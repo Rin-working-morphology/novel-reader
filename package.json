@@ -1,0 +1,33 @@
+{
+  "name": "txt-novel-reader",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "~2",
+    "@tauri-apps/plugin-fs": "~2",
+    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-store": "~2.2.0",
+    "@vicons/ionicons5": "^0.13.0",
+    "dompurify": "^3.2.6",
+    "naive-ui": "^2.41.0",
+    "vfonts": "^0.0.3",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/dompurify": "^3.2.0",
+    "@types/node": "^17.0.45",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3",
+    "vue-tsc": "^2.1.10"
+  }
+}
