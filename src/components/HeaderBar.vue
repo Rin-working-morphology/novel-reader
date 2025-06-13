@@ -12,11 +12,12 @@
         class="header-left"
         data-tauri-drag-region
       >
-        <n-text
+        <n-gradient-text
           data-tauri-drag-region
-          style="margin-left: 12px; font-size: 18px; font-weight: 600"
+          :size="16"
+          style="font-weight: 600"
           >{{ title }}
-        </n-text>
+        </n-gradient-text>
       </div>
 
       <!-- 章节导航 -->
@@ -29,7 +30,7 @@
           :value="currentChapterIndex"
           :options="chapterOptions"
           @update:value="handleJumpToChapter"
-          style="width: 300px"
+          style="width: 220px"
         />
       </div>
 
@@ -69,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-  import { NLayoutHeader, NButton, NSelect, NText } from 'naive-ui';
+  import { NLayoutHeader, NButton, NSelect, NGradientText } from 'naive-ui';
   import { ListOutline, SunnyOutline, MoonOutline, Remove, Close } from '@vicons/ionicons5';
   import { renderIcon } from '../utils/icon';
   import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -124,15 +125,35 @@
 <style scoped>
   .header-content {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     height: 100%;
+    min-width: 0;
   }
 
-  .header-left,
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    .n-gradient-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+  }
+
+  .chapter-nav {
+    flex-shrink: 1;
+    min-width: 220px;
+  }
+
   .header-right {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
   }
 </style>

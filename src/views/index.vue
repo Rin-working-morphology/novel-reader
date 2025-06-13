@@ -234,3 +234,4 @@
     initializeProgress();
   });
 </script>
+<style scoped></style>
