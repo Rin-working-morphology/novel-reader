@@ -16,7 +16,6 @@ export interface Chapter {
   images: Record<string, string>; // 图片映射
 }
 
-// 添加渲染模式枚举
 export enum RenderMode {
   TEXT = "text",
   HTML = "html",

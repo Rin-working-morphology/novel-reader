@@ -1,8 +1,8 @@
-import { ref, onMounted, onUnmounted } from 'vue';
-import { FileService, type ReadingProgress, type TxtFile } from '../services/fileService';
+import { ref, onMounted, onUnmounted } from "vue";
+import { FileService, type ReadingProgress, type TxtFile } from "../services/fileService";
 
 export function useProgress() {
-  const currentFolder = ref('');
+  const currentFolder = ref("");
   const currentFile = ref<TxtFile | null>(null);
   const currentChapterIndex = ref(0);
   const scrollPosition = ref(0);
@@ -21,7 +21,7 @@ export function useProgress() {
     try {
       await FileService.saveProgress(progress);
     } catch (error) {
-      console.error('保存进度失败:', error);
+      console.error("保存进度失败:", error);
     }
   };
 
@@ -32,7 +32,7 @@ export function useProgress() {
         return progress;
       }
     } catch (error) {
-      console.error('加载进度失败:', error);
+      console.error("加载进度失败:", error);
     }
     return null;
   };
@@ -60,12 +60,12 @@ export function useProgress() {
   };
 
   onMounted(() => {
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
   });
 
   onUnmounted(() => {
     saveProgress();
-    window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.removeEventListener("beforeunload", handleBeforeUnload);
   });
 
   return {

@@ -152,14 +152,26 @@ watch(
   { immediate: true }
 );
 
+// 监听章节变化，按需加载内容
 watch(
   () => props.currentChapterIndex,
-  async (newIndex, oldIndex) => {
-    await nextTick();
-    const progressChapter = props.progress?.current_chapter;
-    if (newIndex !== progressChapter || oldIndex === undefined) {
-      if (contentRef.value) {
-        contentRef.value.scrollTo({ top: 0 });
+  async (newIndex) => {
+    if (props.currentFile && newIndex >= 0) {
+      // 检查当前章节是否已加载内容
+      const currentChapter = props.chapters[newIndex];
+      if (!currentChapter?.content) {
+        await loadSingleChapter(props.currentFile.path, newIndex);
+
+        await nextTick();
+        // 恢复滚动位置
+        if (contentRef.value && props.progress.scroll_position > 0) {
+          // 使用延迟确保滚动位置恢复在其他操作之后
+          setTimeout(() => {
+            if (contentRef.value) {
+              contentRef.value.scrollTo({ top: props.progress.scroll_position });
+            }
+          }, 100);
+        }
       }
     }
   },
@@ -197,7 +209,7 @@ const loadChapters = async (file: TxtFile) => {
 };
 
 // 按需加载单个章节的函数
-const loadSingleChapter = async (filePath: string, chapterIndex: number) => {
+async function loadSingleChapter(filePath: string, chapterIndex: number) {
   try {
     loading.value = true;
     const chapter = await FileService.loadEpubChapter(filePath, chapterIndex);
@@ -215,22 +227,7 @@ const loadSingleChapter = async (filePath: string, chapterIndex: number) => {
   } finally {
     loading.value = false;
   }
-};
-
-// 监听章节变化，按需加载内容
-watch(
-  () => props.currentChapterIndex,
-  async (newIndex) => {
-    if (props.currentFile && newIndex >= 0) {
-      // 检查当前章节是否已加载内容
-      const currentChapter = props.chapters[newIndex];
-      if (!currentChapter?.content) {
-        await loadSingleChapter(props.currentFile.path, newIndex);
-      }
-    }
-  },
-  { immediate: true }
-);
+}
 
 const handleJumpToChapter = (index: number) => {
   emit("chapter-changed", index);
@@ -267,7 +264,6 @@ defineExpose({
   color: var(--n-text-color);
 }
 
-/* 图片样式 */
 .chapter-content-html :deep(img) {
   width: 100% !important;
   height: 100% !important;
@@ -290,8 +286,26 @@ defineExpose({
   margin: 24px 0 16px 0;
   font-weight: 600;
 }
+.chapter-content-html :deep(.epub-footnote) {
+  width: 1rem !important;
+  height: 1rem !important;
+  display: inline-block;
+  font-size: 0.85em;
+  vertical-align: super;
+  margin: 0 2px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background-color: rgba(var(--n-primary-color-rgb), 0.1);
+  color: var(--n-primary-color);
+  text-decoration: none;
+  line-height: 1.2;
+  transition: all 0.2s ease;
 
-/* 其他现有样式保持不变 */
+  &:hover {
+    background-color: rgba(var(--n-primary-color-rgb), 0.2);
+    transform: translateY(-1px);
+  }
+}
 .reading-area {
   height: 100%;
   display: flex;

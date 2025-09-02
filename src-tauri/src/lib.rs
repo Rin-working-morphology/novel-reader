@@ -70,7 +70,7 @@ pub fn run() {
             txt::read_txt_file,
             txt::parse_chapters,
             epub::load_epub_file,
-            epub::get_epub_info,    
+            epub::get_epub_info,
             epub::load_epub_chapter,
             save_reading_progress,
             load_reading_progress,
