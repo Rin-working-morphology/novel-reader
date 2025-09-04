@@ -105,14 +105,13 @@ pub async fn read_txt_file(file_path: String) -> Result<String, String> {
 pub async fn parse_chapters(content: String) -> Result<Vec<Chapter>, String> {
     let mut chapters = Vec::new();
 
-    // 章节匹配模式
     let patterns = vec![
-        r"第[零一二三四五六七八九十百千万0-9]+章[\s\r\n\t]*",
-        r"第[零一二三四五六七八九十百千万0-9]+回[\s\r\n\t]*",
-        r"第[零一二三四五六七八九十百千万0-9]+节[\s\r\n\t]*",
-        r"第[零一二三四五六七八九十百千万0-9]+部[\s\r\n\t]*",
-        r"第[零一二三四五六七八九十百千万0-9]+卷[\s\r\n\t]*",
-        r"Chapter\s+\d+[\r\n\t ]+",
+        r"(^|\n)[ ]?第[零一二三四五六七八九十百千万0-9]+章[：: ]?[^\n]{1,50}",
+        r"(^|\n)[ ]?第[零一二三四五六七八九十百千万0-9]+回[：: ]?[^\n]{1,50}",
+        r"(^|\n)[ ]?第[零一二三四五六七八九十百千万0-9]+节[：: ]?[^\n]{1,50}",
+        r"(^|\n)[ ]?第[零一二三四五六七八九十百千万0-9]+部[：: ]?[^\n]{1,50}",
+        r"(^|\n)[ ]?第[零一二三四五六七八九十百千万0-9]+卷[：: ]?[^\n]{1,50}",
+        r"(^|\n)[ ]?Chapter\s+\d+[：: ]?[^\n]{1,50}",
     ];
 
     let mut chapter_positions = Vec::new();
@@ -120,7 +119,13 @@ pub async fn parse_chapters(content: String) -> Result<Vec<Chapter>, String> {
     for pattern in patterns {
         let re = Regex::new(pattern).unwrap();
         for mat in re.find_iter(&content) {
-            chapter_positions.push((mat.start(), mat.end(), mat.as_str().to_string()));
+            // 由于我们添加了(^|\n)前缀，需要检查实际的章节标题开始位置
+            let text = mat.as_str();
+            let title_start = if text.starts_with("\n") { 1 } else { 0 };
+            let actual_start = mat.start() + title_start;
+            let actual_text = &text[title_start..];
+
+            chapter_positions.push((actual_start, mat.end(), actual_text.to_string()));
         }
     }
 

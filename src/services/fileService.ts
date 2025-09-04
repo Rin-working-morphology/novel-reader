@@ -10,12 +10,25 @@ export interface TxtFile {
 export interface Chapter {
   title: string;
   content: string;
+  html_content: string;
   start_pos: number;
   end_pos: number;
-  html_content: string; // 包含图片的HTML内容
-  images: Record<string, string>; // 图片映射
+  images: Record<string, string>;
+  index?: number;
+  level?: number; // 章节层级
+  parent_index?: number; // 父章节索引
+  toc_entry?: string; // TOC条目
+  detection_method?: string; // 检测方法
 }
 
+export interface EpubChapterInfo {
+  title: string;
+  index: number;
+  spine_id: string;
+  level: number;
+  parent_index?: number;
+  detection_method: string;
+}
 export enum RenderMode {
   TEXT = "text",
   HTML = "html",
@@ -27,12 +40,6 @@ export interface ReadingProgress {
   current_chapter: number;
   scroll_position: number;
   last_read_time: string;
-}
-
-export interface EpubChapterInfo {
-  title: string;
-  index: number;
-  spine_id: string;
 }
 
 export class FileService {

@@ -182,10 +182,10 @@ const loadChapters = async (file: TxtFile) => {
   try {
     loading.value = true;
 
-    // 首先获取章节信息列表
+    // 获取增强的章节信息列表
     const chaptersInfo = await FileService.getEpubInfo(file.path);
 
-    // 创建轻量级章节列表（只包含标题和索引）
+    // 创建包含层级信息的轻量级章节列表
     const lightweightChapters = chaptersInfo.map((info) => ({
       title: info.title,
       content: "", // 暂时为空
@@ -193,11 +193,17 @@ const loadChapters = async (file: TxtFile) => {
       start_pos: 0,
       end_pos: 0,
       images: {},
-      index: info.index, // 添加索引用于按需加载
+      index: info.index,
+      level: info.level, // 章节层级
+      parent_index: info.parent_index, // 父章节索引
+      toc_entry: undefined,
+      detection_method: info.detection_method, // 检测方法
     }));
 
+    console.log("0------", lightweightChapters);
+
     emit("chapters-loaded", lightweightChapters);
-    message.success(`已加载 ${chaptersInfo.length} 个章节目录`);
+    message.success(`已加载 ${chaptersInfo.length} 个章节目录（包含层级信息）`);
 
     // 加载第一章内容
     await loadSingleChapter(file.path, 0);
@@ -208,16 +214,20 @@ const loadChapters = async (file: TxtFile) => {
   }
 };
 
-// 按需加载单个章节的函数
+// 按需加载单个章节的函数 - 现在支持增强信息
 async function loadSingleChapter(filePath: string, chapterIndex: number) {
   try {
     loading.value = true;
     const chapter = await FileService.loadEpubChapter(filePath, chapterIndex);
 
-    // 更新当前章节的内容
+    // 更新当前章节的内容，包含增强信息
     if (props.chapters[chapterIndex]) {
       props.chapters[chapterIndex].content = chapter.content;
       props.chapters[chapterIndex].html_content = chapter.html_content;
+      props.chapters[chapterIndex].level = chapter.level || 1;
+      props.chapters[chapterIndex].parent_index = chapter.parent_index;
+      props.chapters[chapterIndex].toc_entry = chapter.toc_entry;
+      props.chapters[chapterIndex].detection_method = chapter.detection_method;
     }
 
     return chapter;
