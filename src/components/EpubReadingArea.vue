@@ -200,8 +200,6 @@ const loadChapters = async (file: TxtFile) => {
       detection_method: info.detection_method, // 检测方法
     }));
 
-    console.log("0------", lightweightChapters);
-
     emit("chapters-loaded", lightweightChapters);
     message.success(`已加载 ${chaptersInfo.length} 个章节目录（包含层级信息）`);
 

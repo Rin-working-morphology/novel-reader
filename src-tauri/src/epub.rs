@@ -87,7 +87,6 @@ fn extract_title_with_confidence(html: &str, toc_entries: &[TocEntry]) -> (Strin
     let mut candidates = Vec::new();
 
     // 1. 优先级最高：从内容中提取可能的标题，然后与 TOC 匹配
-    let document = Html::parse_document(html);
     let text_content = extract_text_content_simple(&document);
     let lines: Vec<&str> = text_content.lines().collect();
 
@@ -517,20 +516,29 @@ fn extract_toc_structure(epub_doc: &mut EpubDocument) -> Result<Vec<TocEntry>, S
     Ok(Vec::new())
 }
 
-// 主要的EPUB加载命令 - 使用增强策略
-#[tauri::command]
-pub async fn load_epub_file(file_path: String) -> Result<Vec<EpubChapter>, String> {
-    let mut epub_doc = match EpubDoc::new(&file_path) {
+// 共享的EPUB解析基础函数，处理load_epub_file和get_epub_info的共同逻辑
+fn extract_epub_chapters_base(
+    file_path: &str,
+) -> Result<(EpubDocument, Vec<TocEntry>, HashMap<usize, TocEntry>, usize), String> {
+    let mut epub_doc = match EpubDoc::new(file_path) {
         Ok(doc) => doc,
         Err(e) => return Err(format!("Failed to open EPUB file: {}", e)),
     };
 
     let toc_entries = extract_toc_structure(&mut epub_doc).unwrap_or_default();
-    let spine_to_toc: HashMap<usize, TocEntry> =
-        build_spine_toc_mapping(&mut epub_doc, &toc_entries)?;
+    let spine_to_toc = build_spine_toc_mapping(&mut epub_doc, &toc_entries)?;
+    let spine_len = epub_doc.get_num_pages();
+
+    Ok((epub_doc, toc_entries, spine_to_toc, spine_len))
+}
+
+// 主要的EPUB加载命令 - 使用增强策略
+#[tauri::command]
+pub async fn load_epub_file(file_path: String) -> Result<Vec<EpubChapter>, String> {
+    let (mut epub_doc, toc_entries, spine_to_toc, spine_len) =
+        extract_epub_chapters_base(&file_path)?;
 
     let mut chapters = Vec::new();
-    let spine_len = epub_doc.get_num_pages();
 
     for i in 0..spine_len {
         epub_doc.set_current_page(i);
@@ -575,17 +583,10 @@ pub async fn load_epub_file(file_path: String) -> Result<Vec<EpubChapter>, Strin
 // 获取EPUB基本信息 - 使用增强策略
 #[tauri::command]
 pub async fn get_epub_info(file_path: String) -> Result<Vec<EpubChapterInfo>, String> {
-    let mut epub_doc = match EpubDoc::new(&file_path) {
-        Ok(doc) => doc,
-        Err(e) => return Err(format!("Failed to open EPUB file: {}", e)),
-    };
-
-    let toc_entries = extract_toc_structure(&mut epub_doc).unwrap_or_default();
-    let spine_to_toc: HashMap<usize, TocEntry> =
-        build_spine_toc_mapping(&mut epub_doc, &toc_entries)?;
+    let (mut epub_doc, toc_entries, spine_to_toc, spine_len) =
+        extract_epub_chapters_base(&file_path)?;
 
     let mut chapters_info = Vec::new();
-    let spine_len = epub_doc.get_num_pages();
     let mut temp_chapters: Vec<EpubChapter> = Vec::new(); // 用于层级计算
 
     for i in 0..spine_len {
