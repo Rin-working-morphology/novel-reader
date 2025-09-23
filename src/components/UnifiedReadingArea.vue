@@ -5,7 +5,7 @@
     :chapters="chapters"
     :current-chapter-index="currentChapterIndex"
     :theme="theme"
-    :loading="loading"
+    :loading="loading || props.restoring"
     @chapter-changed="handleChapterChanged"
     @scroll="handleScroll"
   >
@@ -39,6 +39,7 @@ interface Props {
   currentChapterIndex: number;
   theme: string;
   progress: Record<string, any>;
+  restoring: boolean;
 }
 
 const props = defineProps<Props>();
@@ -99,7 +100,9 @@ watch(
 
       if (!props.progress.scroll_position) {
         setTimeout(() => {
-          baseReadingAreaRef.value.checkContentHeight();
+          if (baseReadingAreaRef.value) {
+            baseReadingAreaRef.value.checkContentHeight();
+          }
         }, 100);
       }
     }
@@ -139,7 +142,9 @@ watch(
     }
 
     setTimeout(() => {
-      baseReadingAreaRef.value.checkContentHeight();
+      if (baseReadingAreaRef.value && !props.progress.scroll_position) {
+        baseReadingAreaRef.value.checkContentHeight();
+      }
     }, 100);
   },
   { immediate: true }

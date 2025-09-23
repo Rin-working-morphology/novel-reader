@@ -42,6 +42,7 @@
             :chapters="chapters"
             :theme="props.theme"
             :progress="readingProgress"
+            :restoring="isRestoringProgress"
             :current-chapter-index="currentChapterIndex"
             @chapters-loaded="handleChaptersLoaded"
             @chapter-changed="handleChapterChanged"
@@ -75,7 +76,6 @@ import ChapterOutline from "@/components/ChapterOutline.vue";
 import { useProgress } from "@/composables/useProgress";
 import { FileService, type TxtFile, type Chapter, type ReadingProgress } from "@/services/fileService";
 import { debounce } from "lodash-es";
-import { useReading } from "@/composables/useReading";
 
 const props = defineProps<{
   theme: string;
@@ -99,7 +99,7 @@ const toggleTheme = () => {
 // 界面状态现在通过props传递
 
 const isRestoringProgress = ref(false);
-const readingProgress = ref<ReadingProgress>({ current_chapter: 0, scroll_position: 0 });
+const readingProgress = ref<ReadingProgress>({ folder_path: "", current_chapter: 0, scroll_position: 0 });
 
 // 文件和进度管理
 const {
@@ -171,7 +171,7 @@ const handleSelectFile = (file: TxtFile) => {
   chapters.value = [];
   updateCurrentChapter(0);
   // 重置阅读进度
-  readingProgress.value = { current_chapter: 0, scroll_position: 0 };
+  readingProgress.value = { folder_path: currentFolder.value, current_chapter: 0, scroll_position: 0 };
   updateCurrentFile(file);
 };
 
@@ -191,10 +191,7 @@ const initializeProgress = async () => {
       const lastFile = files.find((f) => f.path === progress.current_file);
       if (lastFile) {
         updateCurrentFile(lastFile);
-        readingProgress.value = {
-          current_chapter: progress.current_chapter,
-          scroll_position: progress.scroll_position,
-        };
+        readingProgress.value = { ...progress };
 
         if (lastFile.path.toLowerCase().endsWith(".epub")) {
           currentChapterIndex.value = progress.current_chapter;
@@ -203,10 +200,9 @@ const initializeProgress = async () => {
     } catch (error) {
       console.error("恢复进度失败:", error);
     } finally {
-      // 延迟重置标志，确保所有恢复操作完成
       setTimeout(() => {
         isRestoringProgress.value = false;
-      }, 1000);
+      }, 100);
     }
   }
 };

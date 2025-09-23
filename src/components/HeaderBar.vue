@@ -38,34 +38,34 @@
         class="header-right"
         data-tauri-drag-region
       >
-        <n-button
-          quaternary
-          circle
-          v-if="chapters.length > 1"
-          @click="handleToggleOutline"
-          :render-icon="renderIcon(ListOutline)"
-          :type="outlineVisible ? 'primary' : 'default'"
-        />
-        <n-button
-          quaternary
-          circle
-          @click="$emit('toggle-theme')"
-          :render-icon="renderIcon(renderThemeIcon(props.theme))"
-        />
+        <n-dropdown
+          :options="dropDownOptions"
+          @select="handleMenuSelect"
+        >
+          <n-button
+            quaternary
+            circle
+            class="menu-button"
+          >
+            <n-icon><SettingsOutline /></n-icon>
+          </n-button>
+        </n-dropdown>
+
         <n-button
           quaternary
           circle
           @click="close"
-          :render-icon="renderIcon(Close)"
-        />
+        >
+          <n-icon><Close /></n-icon>
+        </n-button>
       </div>
     </div>
   </n-layout-header>
 </template>
 
 <script setup lang="ts">
-import { NLayoutHeader, NButton, NSelect, NGradientText } from "naive-ui";
-import { ListOutline, SunnyOutline, MoonOutline, Remove, Close } from "@vicons/ionicons5";
+import { NLayoutHeader, NButton, NSelect, NGradientText, NDropdown, NIcon } from "naive-ui";
+import { ListOutline, SunnyOutline, MoonOutline, Close, SettingsOutline } from "@vicons/ionicons5";
 import { renderIcon } from "../utils/icon";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Chapter } from "../services/fileService";
@@ -95,6 +95,15 @@ const renderThemeIcon = (theme: string) => {
   }
 };
 
+const dropDownOptions = computed(() => [
+  { label: "章节概览", key: "chapter-overview", icon: renderIcon(ListOutline) },
+  {
+    label: (props.theme === "default" ? "浅色" : "深色") + "模式",
+    key: "theme",
+    icon: renderIcon(renderThemeIcon(props.theme)),
+  },
+]);
+
 const chapterOptions = computed(() => {
   return props.chapters.map((chapter, index) => ({
     label: chapter.title,
@@ -112,6 +121,15 @@ const handleToggleOutline = () => {
 
 const close = async () => {
   await getCurrentWindow()?.hide();
+};
+
+const handleMenuSelect = (key: string) => {
+  if (key === "theme") {
+    emit("toggle-theme");
+  }
+  if (key === "chapter-overview") {
+    handleToggleOutline();
+  }
 };
 </script>
 
@@ -148,5 +166,13 @@ const close = async () => {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.menu-button {
+  transition: transform 0.5s ease;
+}
+.menu-button:hover {
+  transform: rotate(-90deg);
 }
 </style>

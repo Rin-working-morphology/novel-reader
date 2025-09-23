@@ -35,7 +35,7 @@ export enum RenderMode {
 }
 
 export interface ReadingProgress {
-  folder_path?: string;
+  folder_path: string;
   current_file?: string;
   current_chapter: number;
   scroll_position: number;
@@ -43,10 +43,10 @@ export interface ReadingProgress {
 }
 
 export interface AppearanceSettings {
-  theme: string;              // "default" 或 "dark"
-  show_file_sidebar: boolean;    // 是否显示文件列表
+  theme: string; // "default" 或 "dark"
+  show_file_sidebar: boolean; // 是否显示文件列表
   show_outline_sidebar: boolean; // 是否显示右侧大纲列表
-  outline_collapsed: boolean;    // 是否折叠右侧大纲列表
+  outline_collapsed: boolean; // 是否折叠右侧大纲列表
 }
 
 export class FileService {

@@ -30,8 +30,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { NButton, NRadioGroup, NRadio, NIcon } from "naive-ui";
-import { ArrowForwardOutline, ArrowBackOutline } from "@vicons/ionicons5";
+import { NRadioGroup, NRadio } from "naive-ui";
 import DOMPurify from "dompurify";
 import { type Chapter, RenderMode } from "../services/fileService";
 
