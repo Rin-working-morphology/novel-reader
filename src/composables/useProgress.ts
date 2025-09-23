@@ -12,12 +12,11 @@ export function useProgress() {
 
     const progress: ReadingProgress = {
       folder_path: currentFolder.value,
-      current_file: currentFile.value.path,
+      current_file: currentFile.value?.path,
       current_chapter: currentChapterIndex.value,
       scroll_position: scrollPosition.value,
       last_read_time: new Date().toISOString(),
     };
-
     try {
       await FileService.saveProgress(progress);
     } catch (error) {

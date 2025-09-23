@@ -1,5 +1,10 @@
 use serde::{Deserialize, Serialize};
-
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager,
+};
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 mod epub;
 mod txt;
 
@@ -61,6 +66,39 @@ async fn load_reading_progress(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .setup(|app| {
+            let quit_i = MenuItem::with_id(app, "quit", "关闭", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&quit_i])?;
+
+            let tray = TrayIconBuilder::new()
+                .on_tray_icon_event(|tray, event| match event {
+                    TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } => {
+                        // in this example, let's show and focus the main window when the tray is clicked
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    _ => {}
+                })
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "quit" => {
+                        let _ = app.save_window_state(StateFlags::all()); // 保存窗口状态
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .icon(app.default_window_icon().unwrap().clone())
+                .build(app)?;
+            Ok(())
+        })
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())

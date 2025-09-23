@@ -16,7 +16,8 @@
         "width": 800,
         "height": 600,
         "transparent": true,
-        "decorations": false
+        "decorations": false,
+        "skipTaskbar": true
       }
     ],
     "security": {
@@ -49,8 +50,8 @@
           "y": 170
         },
         "windowSize": {
-          "width": 660,
-          "height": 400
+          "width": 800,
+          "height": 600
         }
       }
     }

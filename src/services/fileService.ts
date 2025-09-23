@@ -35,11 +35,11 @@ export enum RenderMode {
 }
 
 export interface ReadingProgress {
-  folder_path: string;
-  current_file: string;
+  folder_path?: string;
+  current_file?: string;
   current_chapter: number;
   scroll_position: number;
-  last_read_time: string;
+  last_read_time?: string;
 }
 
 export class FileService {
@@ -81,12 +81,6 @@ export class FileService {
       filePath,
       chapterIndex,
     });
-  }
-
-  // 保留原方法作为兼容，但建议使用新的分页方式
-  static async loadEpubFile(filePath: string): Promise<Chapter[]> {
-    console.warn("loadEpubFile is deprecated for large files, use getEpubInfo + loadEpubChapter instead");
-    return await invoke<Chapter[]>("load_epub_file", { filePath });
   }
 
   static async saveProgress(progress: ReadingProgress): Promise<void> {

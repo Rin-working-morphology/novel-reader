@@ -55,12 +55,6 @@
         <n-button
           quaternary
           circle
-          @click="minimize"
-          :render-icon="renderIcon(Remove)"
-        />
-        <n-button
-          quaternary
-          circle
           @click="close"
           :render-icon="renderIcon(Close)"
         />
@@ -70,90 +64,86 @@
 </template>
 
 <script setup lang="ts">
-  import { NLayoutHeader, NButton, NSelect, NGradientText } from 'naive-ui';
-  import { ListOutline, SunnyOutline, MoonOutline, Remove, Close } from '@vicons/ionicons5';
-  import { renderIcon } from '../utils/icon';
-  import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { type Chapter } from '../services/fileService';
-  import { computed } from 'vue';
+import { NLayoutHeader, NButton, NSelect, NGradientText } from "naive-ui";
+import { ListOutline, SunnyOutline, MoonOutline, Remove, Close } from "@vicons/ionicons5";
+import { renderIcon } from "../utils/icon";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { type Chapter } from "../services/fileService";
+import { computed } from "vue";
 
-  interface Props {
-    sidebarCollapsed: boolean;
-    outlineVisible: boolean;
-    theme: string;
-    title: string;
-    chapters: Chapter[];
-    currentChapterIndex: number;
+interface Props {
+  sidebarCollapsed: boolean;
+  outlineVisible: boolean;
+  theme: string;
+  title: string;
+  chapters: Chapter[];
+  currentChapterIndex: number;
+}
+
+const props = defineProps<Props>();
+const emit = defineEmits<{
+  "toggle-sidebar": [];
+  "toggle-outline": [];
+  "toggle-theme": [];
+  "chapter-changed": [index: number];
+}>();
+
+const renderThemeIcon = (theme: string) => {
+  if (theme === "default") {
+    return SunnyOutline;
+  } else {
+    return MoonOutline;
   }
+};
 
-  const props = defineProps<Props>();
-  const emit = defineEmits<{
-    'toggle-sidebar': [];
-    'toggle-outline': [];
-    'toggle-theme': [];
-    'chapter-changed': [index: number];
-  }>();
+const chapterOptions = computed(() => {
+  return props.chapters.map((chapter, index) => ({
+    label: chapter.title,
+    value: index,
+  }));
+});
 
-  const renderThemeIcon = (theme: string) => {
-    if (theme === 'default') {
-      return SunnyOutline;
-    } else {
-      return MoonOutline;
-    }
-  };
+const handleJumpToChapter = (index: number) => {
+  emit("chapter-changed", index);
+};
 
-  const chapterOptions = computed(() => {
-    return props.chapters.map((chapter, index) => ({
-      label: chapter.title,
-      value: index,
-    }));
-  });
-
-  const handleJumpToChapter = (index: number) => {
-    emit('chapter-changed', index);
-  };
-
-  const minimize = async () => {
-    await getCurrentWindow()?.minimize();
-  };
-
-  const close = async () => {
-    await getCurrentWindow()?.close();
-  };
+const close = async () => {
+  await getCurrentWindow()?.hide();
+};
 </script>
 
 <style scoped>
-  .header-content {
-    display: flex;
-    align-items: center;
-    height: 100%;
-    min-width: 0;
-  }
+.header-content {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+}
 
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-    min-width: 0;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  .n-gradient-text {
     overflow: hidden;
-    .n-gradient-text {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      min-width: 0;
-    }
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
+}
 
-  .chapter-nav {
-    flex-shrink: 1;
-    min-width: 220px;
-  }
+.chapter-nav {
+  flex-shrink: 1;
+  min-width: 220px;
+}
 
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
 </style>
