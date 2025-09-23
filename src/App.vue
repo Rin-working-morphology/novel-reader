@@ -137,6 +137,7 @@ const lightThemeOverrides: ComputedRef<GlobalThemeOverrides> = computed(() => {
       primaryColorSuppl: "#a6bc01",
       dividerColor: "#ddd8be",
       borderColor: "#ddd8be",
+      hoverColor: "#e5e6c5",
       textColorBase: "#5c6a72",
     },
     Button: {

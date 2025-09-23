@@ -52,6 +52,7 @@
 
         <!-- 右侧大纲 -->
         <ChapterOutline
+          ref="chapterOutlineRef"
           :visible="props.outlineVisible"
           :chapters="chapters"
           :collapsed="props.outlineCollapsed"
@@ -118,6 +119,7 @@ const chapters = ref<Chapter[]>([]);
 const allFiles = ref<TxtFile[]>([]);
 
 const readingAreaRef = ref();
+const chapterOutlineRef = ref();
 
 // 文件夹选择处理
 const handleFolderSelected = (folderPath: string, files: TxtFile[]) => {

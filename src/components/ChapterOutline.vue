@@ -18,6 +18,7 @@
         章节目录
       </n-text>
       <n-tree
+        ref="treeInstRef"
         :data="treeData"
         :virtual-scroll="true"
         :node-props="getNodeProps"
@@ -32,7 +33,7 @@
 <script setup lang="ts">
 import { NLayoutSider, NText, NTree, NTooltip } from "naive-ui";
 import { BookOutline, Book } from "@vicons/ionicons5";
-import { ref, computed, h } from "vue";
+import { ref, computed, h, watch, nextTick } from "vue";
 
 import { renderIcon } from "@/utils/icon";
 
@@ -56,9 +57,40 @@ const emit = defineEmits<{
   "toggle-collapse": [collapsed: boolean];
 }>();
 
+const treeInstRef = ref<InstanceType<typeof NTree> | null>(null);
+
 const toggleCollapse = (collapse: boolean) => {
   emit("toggle-collapse", collapse);
 };
+
+// 滚动到指定章节
+const scrollToChapter = (index: number) => {
+  if (treeInstRef.value && index >= 20 && index < props.chapters.length) {
+    if (index + 10 < props.chapters.length) {
+      treeInstRef.value.scrollTo({ index: index + 10 });
+    } else {
+      treeInstRef.value.scrollTo({ index: props.chapters.length - 1 });
+    }
+  }
+};
+
+// 监听当前章节变化，自动滚动到对应位置
+watch(
+  () => props.currentChapterIndex,
+  (newIndex) => {
+    if (newIndex >= 0) {
+      // 使用nextTick确保DOM更新完成后再滚动
+      nextTick(() => {
+        scrollToChapter(newIndex);
+      });
+    }
+  }
+);
+
+// 暴露方法给父组件
+defineExpose({
+  scrollToChapter,
+});
 
 // 将章节数据转换为树形数据
 const treeData = computed(() => {
