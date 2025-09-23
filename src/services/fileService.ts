@@ -42,6 +42,13 @@ export interface ReadingProgress {
   last_read_time?: string;
 }
 
+export interface AppearanceSettings {
+  theme: string;              // "default" 或 "dark"
+  show_file_sidebar: boolean;    // 是否显示文件列表
+  show_outline_sidebar: boolean; // 是否显示右侧大纲列表
+  outline_collapsed: boolean;    // 是否折叠右侧大纲列表
+}
+
 export class FileService {
   static async selectFolder(): Promise<string | null> {
     const selected = await open({
@@ -89,6 +96,14 @@ export class FileService {
 
   static async loadProgress(): Promise<ReadingProgress | null> {
     return await invoke<ReadingProgress | null>("load_reading_progress");
+  }
+
+  static async saveAppearanceSettings(settings: AppearanceSettings): Promise<void> {
+    await invoke("save_appearance_settings", { settings });
+  }
+
+  static async loadAppearanceSettings(): Promise<AppearanceSettings | null> {
+    return await invoke<AppearanceSettings | null>("load_appearance_settings");
   }
 
   static formatFileSize(bytes: number): string {

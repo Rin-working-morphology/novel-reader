@@ -42,7 +42,7 @@
           quaternary
           circle
           v-if="chapters.length > 1"
-          @click="$emit('toggle-outline')"
+          @click="handleToggleOutline"
           :render-icon="renderIcon(ListOutline)"
           :type="outlineVisible ? 'primary' : 'default'"
         />
@@ -82,7 +82,6 @@ interface Props {
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
-  "toggle-sidebar": [];
   "toggle-outline": [];
   "toggle-theme": [];
   "chapter-changed": [index: number];
@@ -105,6 +104,10 @@ const chapterOptions = computed(() => {
 
 const handleJumpToChapter = (index: number) => {
   emit("chapter-changed", index);
+};
+
+const handleToggleOutline = () => {
+  emit("toggle-outline");
 };
 
 const close = async () => {

@@ -152,8 +152,8 @@ const handleScroll = () => {
     const scrollHeight = contentRef.value.scrollbarInstRef.containerRef.scrollHeight;
     const clientHeight = contentRef.value.scrollbarInstRef.containerRef.clientHeight;
 
-    showTopOverlay.value = scrollTop < 50;
-    showBottomOverlay.value = scrollHeight - scrollTop - clientHeight < 50;
+    showTopOverlay.value = scrollTop < 120;
+    showBottomOverlay.value = scrollHeight - scrollTop - clientHeight < 120;
 
     emit("scroll", scrollTop);
   }

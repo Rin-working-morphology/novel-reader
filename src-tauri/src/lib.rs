@@ -17,6 +17,14 @@ struct ReadingProgress {
     last_read_time: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct AppearanceSettings {
+    theme: String,              // "default" 或 "dark"
+    show_file_sidebar: bool,    // 是否显示文件列表
+    show_outline_sidebar: bool, // 是否显示右侧大纲列表
+    outline_collapsed: bool,    // 是否折叠右侧大纲列表
+}
+
 // 保存阅读进度
 #[tauri::command]
 async fn save_reading_progress(
@@ -54,6 +62,52 @@ async fn load_reading_progress(
             match store.get("progress") {
                 Some(value) => match serde_json::from_value::<ReadingProgress>(value.clone()) {
                     Ok(progress) => Ok(Some(progress)),
+                    Err(_) => Ok(None),
+                },
+                None => Ok(None),
+            }
+        }
+        Err(_) => Ok(None),
+    }
+}
+
+// 保存外观设置
+#[tauri::command]
+async fn save_appearance_settings(
+    app_handle: tauri::AppHandle,
+    settings: AppearanceSettings,
+) -> Result<(), String> {
+    let store = tauri_plugin_store::StoreBuilder::new(&app_handle, "appearance_settings.json").build();
+
+    match store {
+        Ok(store) => {
+            store.set("settings", serde_json::to_value(settings).unwrap());
+
+            if let Err(e) = store.save() {
+                return Err(format!("Failed to save store: {}", e));
+            }
+            Ok(())
+        }
+        Err(e) => Err(format!("Failed to create store: {}", e)),
+    }
+}
+
+// 加载外观设置
+#[tauri::command]
+async fn load_appearance_settings(
+    app_handle: tauri::AppHandle,
+) -> Result<Option<AppearanceSettings>, String> {
+    let store = tauri_plugin_store::StoreBuilder::new(&app_handle, "appearance_settings.json").build();
+
+    match store {
+        Ok(store) => {
+            if let Err(e) = store.reload() {
+                return Ok(None); // 文件不存在时返回None
+            }
+
+            match store.get("settings") {
+                Some(value) => match serde_json::from_value::<AppearanceSettings>(value.clone()) {
+                    Ok(settings) => Ok(Some(settings)),
                     Err(_) => Ok(None),
                 },
                 None => Ok(None),
@@ -112,6 +166,8 @@ pub fn run() {
             epub::load_epub_chapter,
             save_reading_progress,
             load_reading_progress,
+            save_appearance_settings,
+            load_appearance_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

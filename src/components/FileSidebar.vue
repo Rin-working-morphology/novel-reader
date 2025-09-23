@@ -1,11 +1,12 @@
 <template>
   <n-layout-sider
     bordered
+    :collapsed="props.collapsed"
     collapse-mode="width"
     :collapsed-width="0"
-    :width="280"
     show-trigger="bar"
     content-style="padding: 16px;"
+    @update:collapsed="handleCollapsedChange"
   >
     <div class="sidebar-content">
       <div class="folder-section">
@@ -33,10 +34,10 @@
         <n-scrollbar style="max-height: calc(100vh - 200px)">
           <n-list>
             <n-list-item
-              v-for="file in allFiles"
+              v-for="file in props.allFiles"
               :key="file.path"
               @click="$emit('select-file', file)"
-              :class="{ 'active-file': currentFile?.path === file.path }"
+              :class="{ 'active-file': props.currentFile?.path === file.path }"
               style="cursor: pointer; padding: 8px 12px"
             >
               <div class="file-item">
@@ -68,10 +69,12 @@ interface Props {
   currentFile: TxtFile | null;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
+
 const emit = defineEmits<{
   "select-file": [file: TxtFile];
   "folder-selected": [folderPath: string, files: TxtFile[]];
+  "toggle-sidebar": [collapsed: boolean];
 }>();
 
 const message = useMessage();
@@ -91,6 +94,10 @@ const handleSelectFolder = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const handleCollapsedChange = (collapsed: boolean) => {
+  emit("toggle-sidebar", collapsed);
 };
 </script>
 

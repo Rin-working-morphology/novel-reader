@@ -96,6 +96,12 @@ watch(
       if (loadedChapters) {
         emit("chapters-loaded", loadedChapters);
       }
+
+      if (!props.progress.scroll_position) {
+        setTimeout(() => {
+          baseReadingAreaRef.value.checkContentHeight();
+        }, 100);
+      }
     }
   },
   { immediate: true }

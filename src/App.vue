@@ -5,31 +5,73 @@
   >
     <ReaderMain
       :theme="theme"
+      :sidebar-collapsed="sidebarCollapsed"
+      :outline-visible="outlineVisible"
+      :outline-collapsed="appearanceSettings.outline_collapsed"
       @toggle-theme="toggleTheme"
+      @toggle-sidebar="handleToggleSidebar"
+      @toggle-outline-visible="handleToggleOutlineVisible"
+      @toggle-outline-collapse="handleToggleOutlineCollapse"
     />
   </n-config-provider>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, ComputedRef } from "vue";
+import { ref, onMounted, onUnmounted, computed, ComputedRef, watch } from "vue";
 import { NConfigProvider, darkTheme, GlobalThemeOverrides } from "naive-ui";
 import { BuiltInGlobalTheme } from "naive-ui/es/themes/interface";
 import { restoreStateCurrent, StateFlags } from "@tauri-apps/plugin-window-state";
 
 import ReaderMain from "./views/index.vue";
+import { FileService, type AppearanceSettings } from "./services/fileService";
+
+// 外观设置状态管理
+const appearanceSettings = ref<AppearanceSettings>({
+  theme: "default",
+  show_file_sidebar: true,
+  show_outline_sidebar: false,
+  outline_collapsed: false,
+});
 
 // 主题管理
 const theme = ref("default");
-
 const nTheme = ref<BuiltInGlobalTheme | null>(null);
-
 const bgColor = ref("#f3ead3");
-
 const darkBgColor = ref("#1a1b26");
+
+// 界面状态
+const sidebarCollapsed = ref(false);
+const outlineVisible = ref(false);
 
 const toggleTheme = () => {
   theme.value = theme.value === "default" ? "dark" : "default";
   nTheme.value = theme.value === "default" ? null : darkTheme;
+  appearanceSettings.value.theme = theme.value;
+};
+
+// 保存外观设置
+const saveAppearanceSettings = async () => {
+  try {
+    await FileService.saveAppearanceSettings(appearanceSettings.value);
+  } catch (error) {
+    console.error("Failed to save appearance settings:", error);
+  }
+};
+
+// 加载外观设置
+const loadAppearanceSettings = async () => {
+  try {
+    const settings = await FileService.loadAppearanceSettings();
+    if (settings) {
+      appearanceSettings.value = settings;
+      theme.value = settings.theme;
+      nTheme.value = settings.theme === "default" ? null : darkTheme;
+      sidebarCollapsed.value = settings.show_file_sidebar;
+      outlineVisible.value = settings.show_outline_sidebar;
+    }
+  } catch (error) {
+    console.error("Failed to load appearance settings:", error);
+  }
 };
 
 const toggleTransparent = () => {
@@ -46,16 +88,41 @@ const handleKeyDown = (e: KeyboardEvent) => {
   }
 };
 
+// 处理侧边栏和大纲切换
+const handleToggleSidebar = (collapsed: boolean) => {
+  sidebarCollapsed.value = collapsed;
+  appearanceSettings.value.show_file_sidebar = collapsed;
+};
+
+const handleToggleOutlineVisible = () => {
+  outlineVisible.value = !outlineVisible.value;
+  appearanceSettings.value.show_outline_sidebar = outlineVisible.value;
+};
+
+const handleToggleOutlineCollapse = (collapsed: boolean) => {
+  appearanceSettings.value.outline_collapsed = collapsed;
+};
+
 // 在组件挂载时添加事件监听
-onMounted(() => {
+onMounted(async () => {
   restoreStateCurrent(StateFlags.ALL);
   window.addEventListener("keydown", handleKeyDown);
+  await loadAppearanceSettings();
 });
 
 // 在组件卸载时移除事件监听，防止内存泄漏
 onUnmounted(() => {
   window.removeEventListener("keydown", handleKeyDown);
 });
+
+// 监听外观设置变化并自动保存
+watch(
+  () => appearanceSettings.value,
+  () => {
+    saveAppearanceSettings();
+  },
+  { deep: true }
+);
 
 const lightThemeOverrides: ComputedRef<GlobalThemeOverrides> = computed(() => {
   return {

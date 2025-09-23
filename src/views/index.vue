@@ -2,14 +2,13 @@
   <n-layout style="height: 100vh">
     <!-- 顶部工具栏 -->
     <HeaderBar
-      :sidebar-collapsed="sidebarCollapsed"
-      :outline-visible="outlineVisible"
+      :sidebar-collapsed="props.sidebarCollapsed"
+      :outline-visible="props.outlineVisible"
       :theme="props.theme"
       :chapters="chapters"
       :current-chapter-index="currentChapterIndex"
       :title="currentFile?.name || ''"
-      @toggle-sidebar="toggleSidebar"
-      @toggle-outline="toggleOutline"
+      @toggle-outline="toggleOutlineVisible"
       @toggle-theme="toggleTheme"
       @chapter-changed="handleChapterChanged"
     />
@@ -21,12 +20,13 @@
       <!-- 左侧文件列表 -->
       <n-message-provider>
         <FileSidebar
-          :collapsed="sidebarCollapsed"
+          :collapsed="props.sidebarCollapsed"
           :current-folder="currentFolder"
           :all-files="allFiles"
           :current-file="currentFile"
           @folder-selected="handleFolderSelected"
           @select-file="handleSelectFile"
+          @toggle-sidebar="toggleSidebar"
         />
       </n-message-provider>
 
@@ -51,10 +51,12 @@
 
         <!-- 右侧大纲 -->
         <ChapterOutline
-          :visible="outlineVisible"
+          :visible="props.outlineVisible"
           :chapters="chapters"
+          :collapsed="props.outlineCollapsed"
           :current-chapter-index="currentChapterIndex"
           @jump-to-chapter="handleChapterChanged"
+          @toggle-collapse="toggleOutlineCollapse"
         />
       </n-layout>
     </n-layout>
@@ -73,13 +75,20 @@ import ChapterOutline from "@/components/ChapterOutline.vue";
 import { useProgress } from "@/composables/useProgress";
 import { FileService, type TxtFile, type Chapter, type ReadingProgress } from "@/services/fileService";
 import { debounce } from "lodash-es";
+import { useReading } from "@/composables/useReading";
 
 const props = defineProps<{
   theme: string;
+  sidebarCollapsed: boolean;
+  outlineVisible: boolean;
+  outlineCollapsed: boolean;
 }>();
 
 const emit = defineEmits<{
   "toggle-theme": [];
+  "toggle-sidebar": [collapsed: boolean];
+  "toggle-outline-visible": [];
+  "toggle-outline-collapse": [collapsed: boolean];
 }>();
 
 // 主题管理
@@ -87,9 +96,7 @@ const toggleTheme = () => {
   emit("toggle-theme");
 };
 
-// 界面状态
-const sidebarCollapsed = ref(false);
-const outlineVisible = ref(false);
+// 界面状态现在通过props传递
 
 const isRestoringProgress = ref(false);
 const readingProgress = ref<ReadingProgress>({ current_chapter: 0, scroll_position: 0 });
@@ -142,12 +149,16 @@ const handleScroll = (position: number) => {
 };
 
 // 界面控制方法
-const toggleSidebar = () => {
-  sidebarCollapsed.value = !sidebarCollapsed.value;
+const toggleSidebar = (collapsed: boolean) => {
+  emit("toggle-sidebar", collapsed);
 };
 
-const toggleOutline = () => {
-  outlineVisible.value = !outlineVisible.value;
+const toggleOutlineVisible = () => {
+  emit("toggle-outline-visible");
+};
+
+const toggleOutlineCollapse = (collapsed: boolean) => {
+  emit("toggle-outline-collapse", collapsed);
 };
 
 const handleSelectFile = (file: TxtFile) => {
