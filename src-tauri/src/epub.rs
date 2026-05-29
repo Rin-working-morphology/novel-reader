@@ -3,7 +3,7 @@ use epub::doc::EpubDoc;
 use regex::Regex;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -67,6 +67,12 @@ struct ChapterRef {
     parent_index: Option<usize>,
     toc_entry: Option<String>,
     detection_method: String,
+}
+
+#[derive(Debug, Clone)]
+struct HeadingRef {
+    title: String,
+    anchor: Option<String>,
 }
 
 // 处理HTML中的图片引用
@@ -266,6 +272,177 @@ fn build_spine_fallback_chapter_refs(epub_doc: &EpubDocument) -> Vec<ChapterRef>
         .collect()
 }
 
+fn build_spine_heading_chapter_refs(
+    epub_doc: &mut EpubDocument,
+    toc_entries: &[TocEntry],
+) -> Vec<ChapterRef> {
+    let toc_title_set: HashSet<String> = toc_entries
+        .iter()
+        .filter_map(|entry| normalize_title(&entry.title))
+        .collect();
+    let toc_title_by_spine = first_toc_title_by_spine(epub_doc, toc_entries);
+    let mut seen_titles = HashSet::new();
+    let mut chapter_refs = Vec::new();
+
+    let spine_items: Vec<(usize, String, bool)> = epub_doc
+        .spine
+        .iter()
+        .enumerate()
+        .map(|(spine_index, item)| (spine_index, item.idref.clone(), item.linear))
+        .collect();
+
+    for (spine_index, spine_id, linear) in spine_items {
+        if !linear {
+            continue;
+        }
+
+        epub_doc.set_current_page(spine_index);
+        let content = match epub_doc.get_current_str() {
+            Some((content, _)) => content,
+            None => continue,
+        };
+
+        let mut headings = extract_heading_refs(&content);
+        if headings.is_empty() {
+            if let Some(title) = toc_title_by_spine.get(&spine_index) {
+                headings.push(HeadingRef {
+                    title: title.clone(),
+                    anchor: None,
+                });
+            }
+        }
+
+        for heading in headings {
+            if should_skip_spine_heading(&heading.title, &toc_title_set) {
+                continue;
+            }
+
+            let is_numbered_chapter = is_numbered_chapter_title(&heading.title);
+            let title_key = heading.title.clone();
+            if !is_numbered_chapter && !seen_titles.insert(title_key) {
+                continue;
+            }
+
+            let href = epub_doc.resources.get(&spine_id).map(|(path, _)| {
+                let mut href = path_to_epub_href(path);
+                if let Some(anchor) = heading.anchor.as_deref() {
+                    href.push('#');
+                    href.push_str(anchor);
+                }
+                href
+            });
+            let index = chapter_refs.len();
+
+            chapter_refs.push(ChapterRef {
+                title: heading.title,
+                index,
+                spine_index,
+                spine_id: spine_id.clone(),
+                href,
+                anchor: heading.anchor,
+                level: 1,
+                parent_index: None,
+                toc_entry: None,
+                detection_method: "SPINE_HEADING_FALLBACK".to_string(),
+            });
+        }
+    }
+
+    if chapter_refs.is_empty() {
+        build_spine_fallback_chapter_refs(epub_doc)
+    } else {
+        chapter_refs
+    }
+}
+
+fn first_toc_title_by_spine(
+    epub_doc: &EpubDocument,
+    toc_entries: &[TocEntry],
+) -> HashMap<usize, String> {
+    let mut titles = HashMap::new();
+
+    for toc_entry in toc_entries {
+        let Some(href) = toc_entry.href.as_deref() else {
+            continue;
+        };
+        let Some(spine_index) = find_spine_index_by_href(epub_doc, href) else {
+            continue;
+        };
+
+        if let Some(title) = normalize_title(&toc_entry.title) {
+            titles.entry(spine_index).or_insert(title);
+        }
+    }
+
+    titles
+}
+
+fn extract_heading_refs(html: &str) -> Vec<HeadingRef> {
+    let document = Html::parse_document(html);
+    let selector = Selector::parse("h1, h2, h3, h4, h5, h6").unwrap();
+
+    document
+        .select(&selector)
+        .filter_map(|element| {
+            let title = normalize_title(&element.text().collect::<String>())?;
+            Some(HeadingRef {
+                title,
+                anchor: element.value().attr("id").map(|value| value.to_string()),
+            })
+        })
+        .collect()
+}
+
+fn should_skip_spine_heading(title: &str, toc_title_set: &HashSet<String>) -> bool {
+    let normalized = title.trim();
+    normalized.eq_ignore_ascii_case("table of contents")
+        || normalized.starts_with("读累了")
+        || (!toc_title_set.contains(normalized) && !is_numbered_chapter_title(normalized))
+}
+
+fn is_numbered_chapter_title(title: &str) -> bool {
+    Regex::new(r"^第[零一二三四五六七八九十百千万0-9]+章$")
+        .map(|re| re.is_match(title.trim()))
+        .unwrap_or(false)
+}
+
+fn toc_refs_conflict_with_content(
+    epub_doc: &mut EpubDocument,
+    toc_entries: &[TocEntry],
+    chapter_refs: &[ChapterRef],
+) -> bool {
+    let mut checked = 0usize;
+    let mut mismatched = 0usize;
+
+    for (chapter_index, chapter_ref) in chapter_refs.iter().enumerate() {
+        if !is_numbered_chapter_title(&chapter_ref.title) {
+            continue;
+        }
+
+        epub_doc.set_current_page(chapter_ref.spine_index);
+        let Some((content, _)) = epub_doc.get_current_str() else {
+            continue;
+        };
+        let chapter_html = slice_chapter_html_by_anchors(
+            &content,
+            chapter_ref.anchor.as_deref(),
+            next_chapter_anchor_in_same_spine(chapter_refs, chapter_index),
+        );
+        let (content_title, confidence) = extract_title_with_confidence(&chapter_html, toc_entries);
+
+        if confidence < 0.7 || !is_numbered_chapter_title(&content_title) {
+            continue;
+        }
+
+        checked += 1;
+        if normalize_title(&chapter_ref.title) != normalize_title(&content_title) {
+            mismatched += 1;
+        }
+    }
+
+    checked >= 3 && mismatched * 2 >= checked
+}
+
 fn find_nearest_toc_parent_index(
     mut parent_toc_index: Option<usize>,
     toc_entries: &[TocEntry],
@@ -402,6 +579,60 @@ fn detection_method_from_confidence(confidence: f32) -> String {
     } else {
         "HEURISTIC".to_string()
     }
+}
+
+fn find_anchor_start(html: &str, anchor: &str, from: usize) -> Option<usize> {
+    let anchor = anchor.trim();
+    if anchor.is_empty() || from >= html.len() {
+        return None;
+    }
+
+    let pattern = format!(
+        r#"(?is)<[^>]*(?:id|name)\s*=\s*["']{}["'][^>]*>"#,
+        regex::escape(anchor)
+    );
+    Regex::new(&pattern)
+        .ok()
+        .and_then(|re| re.find(&html[from..]).map(|matched| from + matched.start()))
+}
+
+fn find_body_close(html: &str) -> Option<usize> {
+    Regex::new(r"(?is)</body\s*>")
+        .ok()
+        .and_then(|re| re.find(html).map(|matched| matched.start()))
+}
+
+fn slice_chapter_html_by_anchors(
+    html: &str,
+    current_anchor: Option<&str>,
+    next_anchor: Option<&str>,
+) -> String {
+    let Some(anchor) = current_anchor else {
+        return html.to_string();
+    };
+
+    let Some(start) = find_anchor_start(html, anchor, 0) else {
+        return html.to_string();
+    };
+
+    let content_end = find_body_close(html).unwrap_or(html.len());
+    let end = next_anchor
+        .and_then(|anchor| find_anchor_start(html, anchor, start.saturating_add(1)))
+        .filter(|end| *end > start)
+        .unwrap_or(content_end);
+
+    html[start..end].to_string()
+}
+
+fn next_chapter_anchor_in_same_spine(
+    chapter_refs: &[ChapterRef],
+    chapter_index: usize,
+) -> Option<&str> {
+    let current_spine_index = chapter_refs.get(chapter_index)?.spine_index;
+    chapter_refs
+        .get(chapter_index + 1)
+        .filter(|chapter_ref| chapter_ref.spine_index == current_spine_index)
+        .and_then(|chapter_ref| chapter_ref.anchor.as_deref())
 }
 
 // 处理当前章节的图片
@@ -838,7 +1069,10 @@ fn extract_epub_chapters_base(
     };
 
     let toc_entries = extract_toc_structure(&mut epub_doc).unwrap_or_default();
-    let chapter_refs = build_chapter_refs(&epub_doc, &toc_entries);
+    let mut chapter_refs = build_chapter_refs(&epub_doc, &toc_entries);
+    if toc_refs_conflict_with_content(&mut epub_doc, &toc_entries, &chapter_refs) {
+        chapter_refs = build_spine_heading_chapter_refs(&mut epub_doc, &toc_entries);
+    }
 
     Ok((epub_doc, toc_entries, chapter_refs))
 }
@@ -850,15 +1084,20 @@ pub async fn load_epub_file(file_path: String) -> Result<Vec<EpubChapter>, Strin
 
     let mut chapters = Vec::new();
 
-    for chapter_ref in chapter_refs {
+    for (chapter_index, chapter_ref) in chapter_refs.iter().enumerate() {
         epub_doc.set_current_page(chapter_ref.spine_index);
 
         let content = match epub_doc.get_current_str() {
             Some((content, _)) => content,
             None => continue,
         };
+        let chapter_html = slice_chapter_html_by_anchors(
+            &content,
+            chapter_ref.anchor.as_deref(),
+            next_chapter_anchor_in_same_spine(&chapter_refs, chapter_index),
+        );
 
-        let (title, confidence) = extract_title_with_confidence(&content, &toc_entries);
+        let (title, confidence) = extract_title_with_confidence(&chapter_html, &toc_entries);
         let title = if chapter_ref.detection_method == "TOC" {
             chapter_ref.title.clone()
         } else {
@@ -870,18 +1109,18 @@ pub async fn load_epub_file(file_path: String) -> Result<Vec<EpubChapter>, Strin
             detection_method_from_confidence(confidence)
         };
 
-        let processed_html = process_chapter_images(&content, &mut epub_doc);
-        let clean_content = clean_html_content(&content);
+        let processed_html = process_chapter_images(&chapter_html, &mut epub_doc);
+        let clean_content = clean_html_content(&chapter_html);
 
         chapters.push(EpubChapter {
             title,
             content: clean_content,
             html_content: processed_html,
-            href: chapter_ref.href,
-            anchor: chapter_ref.anchor,
+            href: chapter_ref.href.clone(),
+            anchor: chapter_ref.anchor.clone(),
             level: chapter_ref.level,
             parent_index: chapter_ref.parent_index,
-            toc_entry: chapter_ref.toc_entry,
+            toc_entry: chapter_ref.toc_entry.clone(),
             detection_method,
         });
     }
@@ -966,8 +1205,13 @@ pub async fn load_epub_chapter(
         Some((content, _)) => content,
         None => return Err("Failed to get chapter content".to_string()),
     };
+    let chapter_html = slice_chapter_html_by_anchors(
+        &content,
+        chapter_ref.anchor.as_deref(),
+        next_chapter_anchor_in_same_spine(&chapter_refs, chapter_index),
+    );
 
-    let (title, confidence) = extract_title_with_confidence(&content, &toc_entries);
+    let (title, confidence) = extract_title_with_confidence(&chapter_html, &toc_entries);
     let (title, detection_method) = if chapter_ref.detection_method == "TOC" {
         (chapter_ref.title.clone(), "TOC".to_string())
     } else if confidence > 0.7 {
@@ -976,8 +1220,8 @@ pub async fn load_epub_chapter(
         (title, "HEURISTIC".to_string())
     };
 
-    let processed_html = process_chapter_images(&content, &mut epub_doc);
-    let clean_content = clean_html_content(&content);
+    let processed_html = process_chapter_images(&chapter_html, &mut epub_doc);
+    let clean_content = clean_html_content(&chapter_html);
 
     Ok(EpubChapter {
         title,
