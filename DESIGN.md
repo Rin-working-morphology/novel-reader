@@ -15,19 +15,19 @@ colors:
   transparent: "#00000000"
 typography:
   title:
-    fontFamily: "Lato, system-ui, sans-serif"
+    fontFamily: "LXGW Neo XiHei, system-ui, sans-serif"
     fontSize: "16px"
     fontWeight: 600
     lineHeight: 1.4
     letterSpacing: "0"
   body:
-    fontFamily: "Lato, system-ui, sans-serif"
+    fontFamily: "LXGW Neo XiHei, system-ui, sans-serif"
     fontSize: "16px"
     fontWeight: 400
     lineHeight: 1.8
     letterSpacing: "0"
   label:
-    fontFamily: "Lato, system-ui, sans-serif"
+    fontFamily: "LXGW Neo XiHei, system-ui, sans-serif"
     fontSize: "12px"
     fontWeight: 400
     lineHeight: 1.4
@@ -101,8 +101,8 @@ The palette is restrained: warm light reading tones, a quiet ink color, a small 
 
 ## 3. Typography
 
-**Display Font:** Lato with system-ui fallback
-**Body Font:** Lato with system-ui fallback
+**Display Font:** LXGW Neo XiHei with system-ui fallback
+**Body Font:** LXGW Neo XiHei with system-ui fallback
 **Label/Mono Font:** Fira Code only for code-like or debug surfaces, not normal reader UI
 
 **Character:** A single sans family keeps the product familiar and low-friction. Reading typography should be calm, not expressive; hierarchy comes from weight, spacing, and placement.

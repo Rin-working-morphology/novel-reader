@@ -40,6 +40,7 @@ const transparentBorder = "1px solid transparent";
 
 const bgColor = ref(lightBgColor);
 const darkBgColor = ref(darkDefaultBgColor);
+const uiFontFamily = '"LXGW Neo XiHei", system-ui, sans-serif';
 
 // 界面状态
 const sidebarCollapsed = ref(false);
@@ -152,6 +153,7 @@ const lightThemeOverrides: ComputedRef<GlobalThemeOverrides> = computed(() => {
 
   return {
     common: {
+      fontFamily: uiFontFamily,
       baseColor: bgColor.value,
       bodyColor: bgColor.value,
       inputColor: bgColor.value,
@@ -265,6 +267,7 @@ const darkThemeOverrides: ComputedRef<GlobalThemeOverrides> = computed(() => {
 
   return {
     common: {
+      fontFamily: uiFontFamily,
       baseColor: darkBgColor.value,
       bodyColor: darkBgColor.value,
       inputColor: darkBgColor.value,

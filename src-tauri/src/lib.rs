@@ -76,7 +76,8 @@ async fn save_appearance_settings(
     app_handle: tauri::AppHandle,
     settings: AppearanceSettings,
 ) -> Result<(), String> {
-    let store = tauri_plugin_store::StoreBuilder::new(&app_handle, "appearance_settings.json").build();
+    let store =
+        tauri_plugin_store::StoreBuilder::new(&app_handle, "appearance_settings.json").build();
 
     match store {
         Ok(store) => {
@@ -96,7 +97,8 @@ async fn save_appearance_settings(
 async fn load_appearance_settings(
     app_handle: tauri::AppHandle,
 ) -> Result<Option<AppearanceSettings>, String> {
-    let store = tauri_plugin_store::StoreBuilder::new(&app_handle, "appearance_settings.json").build();
+    let store =
+        tauri_plugin_store::StoreBuilder::new(&app_handle, "appearance_settings.json").build();
 
     match store {
         Ok(store) => {
