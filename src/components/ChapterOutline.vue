@@ -6,8 +6,9 @@
     show-trigger="arrow-circle"
     collapse-mode="width"
     :collapsed="!visible"
-    content-style="padding: 16px;"
     :collapsed-width="0"
+    :show-collapsed-content="false"
+    content-style="padding: 16px; overflow: hidden;"
     @update:collapsed="handleCollapsedChange"
   >
     <div class="outline-content">
@@ -120,6 +121,10 @@ const renderTreeIcon = (index: number) =>
 <style scoped>
 .outline-content {
   height: 100%;
+  width: 218px;
+  min-width: 218px;
+  overflow: hidden;
+
   :deep(.n-tree-node-wrapper .n-tree-node-switcher.n-tree-node-switcher--hide) {
     display: none;
   }

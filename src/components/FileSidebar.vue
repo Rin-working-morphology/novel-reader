@@ -1,11 +1,13 @@
 <template>
   <n-layout-sider
     bordered
+    :width="272"
     :collapsed="props.collapsed"
     collapse-mode="width"
     :collapsed-width="0"
+    :show-collapsed-content="false"
     show-trigger="bar"
-    content-style="padding: 16px;"
+    content-style="padding: 16px; overflow: hidden;"
     @update:collapsed="handleCollapsedChange"
   >
     <div class="sidebar-content">
@@ -104,6 +106,9 @@ const handleCollapsedChange = (collapsed: boolean) => {
 <style scoped>
 .sidebar-content {
   height: 100%;
+  width: 240px;
+  min-width: 240px;
+  overflow: hidden;
 }
 
 .folder-section {
@@ -114,6 +119,13 @@ const handleCollapsedChange = (collapsed: boolean) => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+
+.file-item :deep(.n-text) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .active-file {
