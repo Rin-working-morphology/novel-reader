@@ -36,12 +36,18 @@ const appearanceSettings = ref<AppearanceSettings>({
 // 主题管理
 const theme = ref("default");
 const nTheme = ref<BuiltInGlobalTheme | null>(null);
-const bgColor = ref("#f3ead3");
-const darkBgColor = ref("#1a1b26");
+const lightBgColor = "#f3ead3";
+const darkDefaultBgColor = "#1a1b26";
+const transparentColor = "transparent";
+const transparentBorder = "1px solid transparent";
+
+const bgColor = ref(lightBgColor);
+const darkBgColor = ref(darkDefaultBgColor);
 
 // 界面状态
 const sidebarCollapsed = ref(false);
 const outlineVisible = ref(false);
+const sidebarCollapsedBeforeTransparent = ref<boolean | null>(null);
 
 const toggleTheme = () => {
   theme.value = theme.value === "default" ? "dark" : "default";
@@ -75,8 +81,20 @@ const loadAppearanceSettings = async () => {
 };
 
 const toggleTransparent = () => {
-  bgColor.value = bgColor.value === "#f3ead3" ? "transparent" : "#f3ead3";
-  darkBgColor.value = darkBgColor.value === "#1a1b26" ? "transparent" : "#1a1b26";
+  const enteringTransparent = bgColor.value !== transparentColor;
+
+  bgColor.value = enteringTransparent ? transparentColor : lightBgColor;
+  darkBgColor.value = enteringTransparent ? transparentColor : darkDefaultBgColor;
+
+  if (enteringTransparent) {
+    sidebarCollapsedBeforeTransparent.value = sidebarCollapsed.value;
+    sidebarCollapsed.value = true;
+  } else if (sidebarCollapsedBeforeTransparent.value !== null) {
+    sidebarCollapsed.value = sidebarCollapsedBeforeTransparent.value;
+    sidebarCollapsedBeforeTransparent.value = null;
+  }
+
+  appearanceSettings.value.show_file_sidebar = sidebarCollapsed.value;
 };
 
 // 添加键盘事件监听器
@@ -125,64 +143,228 @@ watch(
 );
 
 const lightThemeOverrides: ComputedRef<GlobalThemeOverrides> = computed(() => {
+  const isTransparent = bgColor.value === transparentColor;
+  const primaryColor = "#8da101";
+  const primaryColorHover = "#9eb401";
+  const primaryColorPressed = "#7c9001";
+  const primaryColorSuppl = "#a6bc01";
+  const accentChromeColor = isTransparent ? transparentColor : primaryColor;
+  const lineColor = isTransparent ? transparentColor : "#ddd8be";
+  const hoverColor = isTransparent ? transparentColor : "#e5e6c5";
+  const textColor = "#5c6a72";
+
   return {
     common: {
       baseColor: bgColor.value,
       bodyColor: bgColor.value,
       inputColor: bgColor.value,
       popoverColor: bgColor.value,
-      primaryColor: "#8da101",
-      primaryColorHover: "#9eb401",
-      primaryColorPressed: "#7c9001",
-      primaryColorSuppl: "#a6bc01",
-      dividerColor: "#ddd8be",
-      borderColor: "#ddd8be",
-      hoverColor: "#e5e6c5",
-      textColorBase: "#5c6a72",
+      cardColor: bgColor.value,
+      primaryColor,
+      primaryColorHover,
+      primaryColorPressed,
+      primaryColorSuppl,
+      dividerColor: lineColor,
+      borderColor: lineColor,
+      hoverColor,
+      textColorBase: textColor,
     },
     Button: {
-      textColor: "#5c6a72",
+      textColor,
+      ...(isTransparent
+        ? {
+            border: transparentBorder,
+            borderHover: transparentBorder,
+            borderPressed: transparentBorder,
+            borderFocus: transparentBorder,
+            borderPrimary: transparentBorder,
+            borderHoverPrimary: transparentBorder,
+            borderPressedPrimary: transparentBorder,
+            borderFocusPrimary: transparentBorder,
+            textColorHover: textColor,
+            textColorPressed: textColor,
+            textColorFocus: textColor,
+            textColorTextHover: textColor,
+            textColorTextPressed: textColor,
+            textColorTextFocus: textColor,
+            textColorGhostPrimary: textColor,
+            textColorGhostHoverPrimary: textColor,
+            textColorGhostPressedPrimary: textColor,
+            textColorGhostFocusPrimary: textColor,
+          }
+        : {}),
+    },
+    Divider: { color: lineColor },
+    GradientText: {
+      colorStartPrimary: accentChromeColor,
+      colorEndPrimary: accentChromeColor,
     },
     Layout: {
       color: bgColor.value,
       headerColor: bgColor.value,
       siderColor: bgColor.value,
+      headerBorderColor: lineColor,
+      siderBorderColor: lineColor,
+      siderToggleButtonBorder: isTransparent ? transparentBorder : `1px solid ${lineColor}`,
+      siderToggleButtonColor: bgColor.value,
+      siderToggleBarColor: lineColor,
+      siderToggleBarColorHover: lineColor,
     },
     List: {
       color: bgColor.value,
+      colorHover: hoverColor,
+      borderColor: lineColor,
     },
-    Tree: { nodeColorHover: "#e5e6c5" },
-    Popover: { color: bgColor.value, textColor: "#5c6a72" },
+    Tree: {
+      nodeColorHover: hoverColor,
+      nodeColorPressed: hoverColor,
+      nodeColorActive: hoverColor,
+      lineColor,
+    },
+    Radio: {
+      ...(isTransparent
+        ? {
+            boxShadow: `inset 0 0 0 1px ${lineColor}`,
+            boxShadowActive: `inset 0 0 0 1px ${lineColor}`,
+            boxShadowFocus: `inset 0 0 0 1px ${lineColor}`,
+            boxShadowHover: `inset 0 0 0 1px ${lineColor}`,
+            colorActive: transparentColor,
+            dotColorActive: transparentColor,
+            buttonBorderColor: lineColor,
+            buttonBorderColorActive: lineColor,
+            buttonBorderColorHover: lineColor,
+          }
+        : {}),
+    },
+    InternalSelection: {
+      ...(isTransparent
+        ? {
+            color: transparentColor,
+            colorActive: transparentColor,
+            border: transparentBorder,
+            borderHover: transparentBorder,
+            borderActive: transparentBorder,
+            borderFocus: transparentBorder,
+            boxShadowHover: "none",
+            boxShadowActive: "none",
+            boxShadowFocus: "none",
+          }
+        : {}),
+    },
+    Popover: { color: bgColor.value, textColor },
   };
 });
 
 const darkThemeOverrides: ComputedRef<GlobalThemeOverrides> = computed(() => {
+  const isTransparent = darkBgColor.value === transparentColor;
+  const primaryColor = "#bb9af7";
+  const primaryColorHover = "#d8caf3";
+  const primaryColorPressed = "#ac85f3";
+  const primaryColorSuppl = "#c0a5f2";
+  const accentChromeColor = isTransparent ? transparentColor : primaryColor;
+  const lineColor = isTransparent ? transparentColor : "#414868";
+  const hoverColor = isTransparent ? transparentColor : "#2f354f";
+  const textColor = "#c0caf5";
+
   return {
     common: {
       baseColor: darkBgColor.value,
       bodyColor: darkBgColor.value,
       inputColor: darkBgColor.value,
       popoverColor: darkBgColor.value,
-      primaryColor: "#bb9af7",
-      primaryColorHover: "#d8caf3",
-      primaryColorPressed: "#ac85f3",
-      primaryColorSuppl: "#c0a5f2",
-      dividerColor: "#414868",
-      borderColor: "#414868",
-      textColorBase: "#c0caf5",
+      cardColor: darkBgColor.value,
+      primaryColor,
+      primaryColorHover,
+      primaryColorPressed,
+      primaryColorSuppl,
+      dividerColor: lineColor,
+      borderColor: lineColor,
+      hoverColor,
+      textColorBase: textColor,
     },
     Button: {
-      textColor: "#c0caf5",
+      textColor,
+      ...(isTransparent
+        ? {
+            border: transparentBorder,
+            borderHover: transparentBorder,
+            borderPressed: transparentBorder,
+            borderFocus: transparentBorder,
+            borderPrimary: transparentBorder,
+            borderHoverPrimary: transparentBorder,
+            borderPressedPrimary: transparentBorder,
+            borderFocusPrimary: transparentBorder,
+            textColorHover: textColor,
+            textColorPressed: textColor,
+            textColorFocus: textColor,
+            textColorTextHover: textColor,
+            textColorTextPressed: textColor,
+            textColorTextFocus: textColor,
+            textColorGhostPrimary: textColor,
+            textColorGhostHoverPrimary: textColor,
+            textColorGhostPressedPrimary: textColor,
+            textColorGhostFocusPrimary: textColor,
+          }
+        : {}),
+    },
+    Divider: { color: lineColor },
+    GradientText: {
+      colorStartPrimary: accentChromeColor,
+      colorEndPrimary: accentChromeColor,
     },
     Layout: {
       color: darkBgColor.value,
       headerColor: darkBgColor.value,
       siderColor: darkBgColor.value,
+      headerBorderColor: lineColor,
+      siderBorderColor: lineColor,
+      siderToggleButtonBorder: isTransparent ? transparentBorder : `1px solid ${lineColor}`,
+      siderToggleButtonColor: darkBgColor.value,
+      siderToggleBarColor: lineColor,
+      siderToggleBarColorHover: lineColor,
     },
     List: {
       color: darkBgColor.value,
+      colorHover: hoverColor,
+      borderColor: lineColor,
     },
-    Popover: { color: darkBgColor.value, textColor: "#c0caf5" },
+    Tree: {
+      nodeColorHover: hoverColor,
+      nodeColorPressed: hoverColor,
+      nodeColorActive: hoverColor,
+      lineColor,
+    },
+    Radio: {
+      ...(isTransparent
+        ? {
+            boxShadow: `inset 0 0 0 1px ${lineColor}`,
+            boxShadowActive: `inset 0 0 0 1px ${lineColor}`,
+            boxShadowFocus: `inset 0 0 0 1px ${lineColor}`,
+            boxShadowHover: `inset 0 0 0 1px ${lineColor}`,
+            colorActive: transparentColor,
+            dotColorActive: transparentColor,
+            buttonBorderColor: lineColor,
+            buttonBorderColorActive: lineColor,
+            buttonBorderColorHover: lineColor,
+          }
+        : {}),
+    },
+    InternalSelection: {
+      ...(isTransparent
+        ? {
+            color: transparentColor,
+            colorActive: transparentColor,
+            border: transparentBorder,
+            borderHover: transparentBorder,
+            borderActive: transparentBorder,
+            borderFocus: transparentBorder,
+            boxShadowHover: "none",
+            boxShadowActive: "none",
+            boxShadowFocus: "none",
+          }
+        : {}),
+    },
+    Popover: { color: darkBgColor.value, textColor },
   };
 });
 </script>
