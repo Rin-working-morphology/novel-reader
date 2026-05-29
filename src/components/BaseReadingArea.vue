@@ -44,6 +44,7 @@
               <button
                 type="button"
                 class="chapter-boundary-button"
+                :aria-label="`返回上一章：${chapters[currentChapterIndex - 1]?.title}`"
                 @click="handleJumpToChapter(currentChapterIndex - 1)"
               >
                 <n-icon size="20">
@@ -76,6 +77,7 @@
               <button
                 type="button"
                 class="chapter-boundary-button"
+                :aria-label="`前往下一章：${chapters[currentChapterIndex + 1]?.title}`"
                 @click="handleJumpToChapter(currentChapterIndex + 1)"
               >
                 <span class="chapter-boundary-copy">
@@ -215,44 +217,55 @@ defineExpose({
 }
 
 .chapter-boundary--previous {
-  margin-bottom: 48px;
+  margin-bottom: 44px;
 }
 
 .chapter-boundary--next {
-  margin-top: 64px;
+  margin-top: 56px;
 }
 
 .chapter-boundary-button {
-  width: min(100%, 420px);
-  min-height: 64px;
+  width: min(100%, 440px);
+  min-height: 58px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 12px 18px;
-  border: 1px solid var(--n-border-color);
-  border-radius: 8px;
-  color: inherit;
-  background: color-mix(in srgb, var(--n-card-color) 78%, transparent);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 1px solid var(--chapter-nav-border);
+  border-radius: var(--chapter-nav-radius);
+  color: var(--chapter-nav-text);
+  background: var(--chapter-nav-surface);
   cursor: pointer;
   font: inherit;
   line-height: 1.4;
   text-align: left;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
+  transition: var(--chapter-nav-transition);
+}
+
+.chapter-boundary-button .n-icon {
+  flex: 0 0 auto;
+  color: var(--chapter-nav-muted);
+  transition: color 0.18s ease;
 }
 
 .chapter-boundary-button:hover {
-  background: var(--n-hover-color);
-  border-color: color-mix(in srgb, var(--n-primary-color) 45%, var(--n-border-color));
-  color: var(--n-primary-color);
+  background: var(--chapter-nav-surface-hover);
+  border-color: color-mix(in srgb, var(--chapter-nav-accent) 36%, var(--chapter-nav-border));
+  color: var(--chapter-nav-accent);
+}
+
+.chapter-boundary-button:hover .n-icon {
+  color: var(--chapter-nav-accent);
+}
+
+.chapter-boundary-button:active {
+  background: var(--chapter-nav-surface-active);
 }
 
 .chapter-boundary-button:focus-visible {
-  outline: 2px solid var(--n-primary-color);
-  outline-offset: 3px;
+  outline: none;
+  box-shadow: var(--chapter-nav-focus);
 }
 
 .chapter-boundary-copy {
@@ -265,6 +278,7 @@ defineExpose({
 .chapter-boundary-action {
   font-size: 14px;
   font-weight: 600;
+  letter-spacing: 0;
 }
 
 .chapter-boundary-title {
@@ -273,7 +287,11 @@ defineExpose({
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
-  opacity: 0.78;
+  color: var(--chapter-nav-muted);
+}
+
+.chapter-boundary-button:hover .chapter-boundary-title {
+  color: inherit;
 }
 
 .loading-state {
@@ -288,5 +306,22 @@ defineExpose({
   margin-top: 16px;
   font-size: 16px;
   color: var(--text-color-2);
+}
+
+@media (max-width: 640px) {
+  :deep(.n-scrollbar-content.content-text) {
+    padding: 72px 18px 88px;
+  }
+
+  .chapter-boundary-button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chapter-boundary-button,
+  .chapter-boundary-button .n-icon {
+    transition: none;
+  }
 }
 </style>

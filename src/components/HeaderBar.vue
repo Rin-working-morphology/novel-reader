@@ -12,12 +12,12 @@
         class="header-left"
         data-tauri-drag-region
       >
-        <n-gradient-text
+        <div
+          class="book-title"
           data-tauri-drag-region
-          :size="16"
-          style="font-weight: 600"
-          >{{ title }}
-        </n-gradient-text>
+        >
+          {{ title }}
+        </div>
       </div>
 
       <!-- 章节导航 -->
@@ -27,10 +27,11 @@
         v-if="chapters.length > 1"
       >
         <n-select
+          class="chapter-select"
           :value="currentChapterIndex"
           :options="chapterOptions"
+          aria-label="章节导航"
           @update:value="handleJumpToChapter"
-          style="width: 220px"
         />
       </div>
 
@@ -64,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { NLayoutHeader, NButton, NSelect, NGradientText, NDropdown, NIcon } from "naive-ui";
+import { NLayoutHeader, NButton, NSelect, NDropdown, NIcon } from "naive-ui";
 import { SunnyOutline, MoonOutline, Close, SettingsOutline } from "@vicons/ionicons5";
 import { renderIcon } from "../utils/icon";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -137,17 +138,60 @@ const handleMenuSelect = (key: string) => {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  .n-gradient-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
+}
+
+.book-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--n-text-color);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .chapter-nav {
-  flex-shrink: 1;
-  min-width: 220px;
+  flex: 0 1 280px;
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.chapter-select {
+  width: 100%;
+}
+
+.chapter-select :deep(.n-base-selection) {
+  --n-height: var(--chapter-nav-height);
+  --n-border-radius: var(--chapter-nav-radius);
+  --n-border: 1px solid var(--chapter-nav-border);
+  --n-border-hover: 1px solid var(--chapter-nav-accent);
+  --n-border-active: 1px solid var(--chapter-nav-accent);
+  --n-border-focus: 1px solid var(--chapter-nav-accent);
+  --n-color: var(--chapter-nav-surface);
+  --n-color-active: var(--chapter-nav-surface);
+  --n-box-shadow-focus: var(--chapter-nav-focus);
+  --n-text-color: var(--chapter-nav-text);
+  font-size: 13px;
+  transition: var(--chapter-nav-transition);
+}
+
+.chapter-select :deep(.n-base-selection:hover) {
+  --n-color: var(--chapter-nav-surface-hover);
+}
+
+.chapter-select :deep(.n-base-selection-label) {
+  padding-inline: var(--chapter-nav-x);
+}
+
+.chapter-select :deep(.n-base-selection-input),
+.chapter-select :deep(.n-base-selection-placeholder) {
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.chapter-select :deep(.n-base-selection-placeholder) {
+  color: var(--chapter-nav-muted);
 }
 
 .header-right {
@@ -159,9 +203,20 @@ const handleMenuSelect = (key: string) => {
 }
 
 .menu-button {
-  transition: transform 0.5s ease;
+  transition: transform 0.18s ease;
 }
 .menu-button:hover {
   transform: rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-button,
+  .chapter-select :deep(.n-base-selection) {
+    transition: none;
+  }
+
+  .menu-button:hover {
+    transform: none;
+  }
 }
 </style>

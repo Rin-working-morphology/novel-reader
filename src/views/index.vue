@@ -1,5 +1,8 @@
 <template>
-  <n-layout style="height: 100vh">
+  <n-layout
+    class="reader-shell"
+    style="height: 100vh"
+  >
     <!-- 顶部工具栏 -->
     <HeaderBar
       :theme="props.theme"
@@ -204,4 +207,20 @@ onMounted(() => {
 });
 </script>
 
-<style scoped></style>
+<style scoped>
+.reader-shell {
+  --chapter-nav-height: 36px;
+  --chapter-nav-radius: 8px;
+  --chapter-nav-x: 12px;
+  --chapter-nav-y: 7px;
+  --chapter-nav-border: var(--n-border-color);
+  --chapter-nav-surface: color-mix(in srgb, var(--n-card-color) 86%, transparent);
+  --chapter-nav-surface-hover: var(--n-hover-color);
+  --chapter-nav-surface-active: color-mix(in srgb, var(--n-primary-color) 14%, var(--n-card-color));
+  --chapter-nav-text: var(--n-text-color);
+  --chapter-nav-muted: color-mix(in srgb, var(--n-text-color) 68%, transparent);
+  --chapter-nav-accent: var(--n-primary-color);
+  --chapter-nav-focus: 0 0 0 2px color-mix(in srgb, var(--n-primary-color) 42%, transparent);
+  --chapter-nav-transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+</style>

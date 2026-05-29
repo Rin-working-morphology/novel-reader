@@ -8,23 +8,23 @@
     :collapsed="!visible"
     :collapsed-width="0"
     :show-collapsed-content="false"
-    content-style="padding: 16px; overflow: hidden;"
+    content-style="padding: 14px 12px; overflow: hidden;"
     @update:collapsed="handleCollapsedChange"
   >
     <div class="outline-content">
-      <n-text
-        style="font-weight: 600; margin-bottom: 16px; display: block"
-      >
-        章节目录
-      </n-text>
+      <div class="outline-title">
+        <n-text strong>章节目录</n-text>
+        <span class="outline-count">{{ currentChapterIndex + 1 }} / {{ chapters.length }}</span>
+      </div>
       <n-tree
         ref="treeInstRef"
+        class="chapter-tree"
         :data="treeData"
+        :selected-keys="selectedKeys"
         :virtual-scroll="true"
         :node-props="getNodeProps"
         :checkable="false"
         block-line
-        style="padding: 4px; height: calc(100vh - 140px)"
       />
     </div>
   </n-layout-sider>
@@ -102,6 +102,8 @@ const treeData = computed(() => {
   }));
 });
 
+const selectedKeys = computed(() => [props.currentChapterIndex]);
+
 // 获取节点属性
 const getNodeProps = (info: any) => {
   const index = info.option.key;
@@ -121,17 +123,93 @@ const renderTreeIcon = (index: number) =>
 <style scoped>
 .outline-content {
   height: 100%;
-  width: 218px;
-  min-width: 218px;
+  width: 226px;
+  min-width: 226px;
   overflow: hidden;
-
-  :deep(.n-tree-node-wrapper .n-tree-node-switcher.n-tree-node-switcher--hide) {
-    display: none;
-  }
 }
 
-.active-chapter {
-  background-color: var(--n-merged-color-hover);
-  border-radius: 6px;
+.outline-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+  line-height: 1.4;
+}
+
+.outline-count {
+  flex-shrink: 0;
+  color: var(--chapter-nav-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chapter-tree {
+  height: calc(100vh - 132px);
+  padding: 2px;
+}
+
+.chapter-tree :deep(.n-tree-node-wrapper .n-tree-node-switcher.n-tree-node-switcher--hide) {
+  display: none;
+}
+
+.chapter-tree :deep(.n-tree-node) {
+  min-height: var(--chapter-nav-height);
+  margin-bottom: 4px;
+  color: var(--chapter-nav-text);
+}
+
+.chapter-tree :deep(.n-tree-node-content) {
+  min-height: var(--chapter-nav-height);
+  padding: var(--chapter-nav-y) var(--chapter-nav-x);
+  border: 1px solid transparent;
+  border-radius: var(--chapter-nav-radius);
+  color: inherit;
+  transition: var(--chapter-nav-transition);
+}
+
+.chapter-tree :deep(.n-tree-node-content:hover) {
+  border-color: var(--chapter-nav-border);
+  background-color: var(--chapter-nav-surface-hover);
+}
+
+.chapter-tree :deep(.n-tree-node-content__text) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.chapter-tree :deep(.n-tree-node-content__prefix) {
+  color: var(--chapter-nav-muted);
+}
+
+.chapter-tree :deep(.active-chapter .n-tree-node-content),
+.chapter-tree :deep(.n-tree-node-content.active-chapter),
+.chapter-tree :deep(.active-chapter),
+.chapter-tree :deep(.n-tree-node--selected .n-tree-node-content) {
+  border-color: color-mix(in srgb, var(--chapter-nav-accent) 36%, var(--chapter-nav-border));
+  background-color: var(--chapter-nav-surface-active);
+  color: var(--chapter-nav-accent);
+}
+
+.chapter-tree :deep(.active-chapter .n-tree-node-content__prefix),
+.chapter-tree :deep(.n-tree-node-content.active-chapter .n-tree-node-content__prefix),
+.chapter-tree :deep(.n-tree-node--selected .n-tree-node-content__prefix) {
+  color: var(--chapter-nav-accent);
+}
+
+.chapter-tree :deep(.n-tree-node-content:focus-visible) {
+  outline: none;
+  box-shadow: var(--chapter-nav-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chapter-tree :deep(.n-tree-node-content) {
+    transition: none;
+  }
 }
 </style>
