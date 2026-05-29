@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "app-v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag. Use app-v__VERSION__ to publish the current app version."
+        required: true
+        default: "app-v__VERSION__"
+      release_draft:
+        description: "Create the GitHub release as a draft."
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish (${{ matrix.name }})
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple Silicon
+            platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+          - name: macOS Intel
+            platform: macos-latest
+            args: "--target x86_64-apple-darwin"
+          - name: Windows
+            platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and publish Tauri app
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_SIGNING_IDENTITY: ${{ matrix.platform == 'macos-latest' && '-' || '' }}
+        with:
+          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+          releaseName: txt-novel-reader ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+          releaseBody: "Windows and macOS installers are attached to this release."
+          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && inputs.release_draft || false }}
+          prerelease: false
+          args: ${{ matrix.args }}
