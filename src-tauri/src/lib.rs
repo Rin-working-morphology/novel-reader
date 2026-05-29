@@ -22,7 +22,6 @@ struct AppearanceSettings {
     theme: String,              // "default" 或 "dark"
     show_file_sidebar: bool,    // 是否显示文件列表
     show_outline_sidebar: bool, // 是否显示右侧大纲列表
-    outline_collapsed: bool,    // 是否折叠右侧大纲列表
 }
 
 // 保存阅读进度

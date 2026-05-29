@@ -1,19 +1,18 @@
 <template>
   <n-layout-sider
-    v-if="visible && chapters.length > 1"
+    v-if="chapters.length > 1"
     bordered
     :width="250"
     show-trigger="arrow-circle"
     collapse-mode="width"
-    :collapsed="collapsed"
+    :collapsed="!visible"
     content-style="padding: 16px;"
-    :collapsed-width="64"
-    @update:collapsed="toggleCollapse"
+    :collapsed-width="0"
+    @update:collapsed="handleCollapsedChange"
   >
     <div class="outline-content">
       <n-text
         style="font-weight: 600; margin-bottom: 16px; display: block"
-        v-if="!collapsed"
       >
         章节目录
       </n-text>
@@ -31,9 +30,9 @@
 </template>
 
 <script setup lang="ts">
-import { NLayoutSider, NText, NTree, NTooltip } from "naive-ui";
+import { NLayoutSider, NText, NTree } from "naive-ui";
 import { BookOutline, Book } from "@vicons/ionicons5";
-import { ref, computed, h, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 
 import { renderIcon } from "@/utils/icon";
 
@@ -46,7 +45,6 @@ interface Chapter {
 
 interface Props {
   visible: boolean;
-  collapsed: boolean;
   chapters: Chapter[];
   currentChapterIndex: number;
 }
@@ -54,13 +52,13 @@ interface Props {
 const props = defineProps<Props>();
 const emit = defineEmits<{
   "jump-to-chapter": [index: number];
-  "toggle-collapse": [collapsed: boolean];
+  "update-visible": [visible: boolean];
 }>();
 
 const treeInstRef = ref<InstanceType<typeof NTree> | null>(null);
 
-const toggleCollapse = (collapse: boolean) => {
-  emit("toggle-collapse", collapse);
+const handleCollapsedChange = (collapsed: boolean) => {
+  emit("update-visible", !collapsed);
 };
 
 // 滚动到指定章节
@@ -96,10 +94,10 @@ defineExpose({
 const treeData = computed(() => {
   return props.chapters.map((chapter, index) => ({
     key: index,
-    label: props.collapsed ? "" : chapter.title,
+    label: chapter.title,
     isLeaf: true,
     children: [],
-    prefix: () => renderTreeIcon(chapter.title, index),
+    prefix: () => renderTreeIcon(index),
   }));
 });
 
@@ -115,15 +113,8 @@ const getNodeProps = (info: any) => {
 };
 
 // 自定义渲染标签
-const renderTreeIcon = (label: string, index: number) =>
-  h(
-    NTooltip,
-    { trigger: "hover", placement: "left", disabled: !props.collapsed },
-    {
-      trigger: props.currentChapterIndex === index ? renderIcon(Book) : renderIcon(BookOutline),
-      default: () => label,
-    }
-  );
+const renderTreeIcon = (index: number) =>
+  props.currentChapterIndex === index ? renderIcon(Book)() : renderIcon(BookOutline)();
 </script>
 
 <style scoped>

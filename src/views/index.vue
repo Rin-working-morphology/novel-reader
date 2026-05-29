@@ -2,13 +2,10 @@
   <n-layout style="height: 100vh">
     <!-- 顶部工具栏 -->
     <HeaderBar
-      :sidebar-collapsed="props.sidebarCollapsed"
-      :outline-visible="props.outlineVisible"
       :theme="props.theme"
       :chapters="chapters"
       :current-chapter-index="currentChapterIndex"
       :title="currentFile?.name || ''"
-      @toggle-outline="toggleOutlineVisible"
       @toggle-theme="toggleTheme"
       @chapter-changed="handleChapterChanged"
     />
@@ -55,10 +52,9 @@
           ref="chapterOutlineRef"
           :visible="props.outlineVisible"
           :chapters="chapters"
-          :collapsed="props.outlineCollapsed"
           :current-chapter-index="currentChapterIndex"
           @jump-to-chapter="handleChapterChanged"
-          @toggle-collapse="toggleOutlineCollapse"
+          @update-visible="updateOutlineVisible"
         />
       </n-layout>
     </n-layout>
@@ -66,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed } from "vue";
+import { ref, onMounted, nextTick } from "vue";
 import { NMessageProvider, NLayout } from "naive-ui";
 
 import HeaderBar from "@/components/HeaderBar.vue";
@@ -82,14 +78,12 @@ const props = defineProps<{
   theme: string;
   sidebarCollapsed: boolean;
   outlineVisible: boolean;
-  outlineCollapsed: boolean;
 }>();
 
 const emit = defineEmits<{
   "toggle-theme": [];
   "toggle-sidebar": [collapsed: boolean];
-  "toggle-outline-visible": [];
-  "toggle-outline-collapse": [collapsed: boolean];
+  "toggle-outline-visible": [visible: boolean];
 }>();
 
 // 主题管理
@@ -155,12 +149,8 @@ const toggleSidebar = (collapsed: boolean) => {
   emit("toggle-sidebar", collapsed);
 };
 
-const toggleOutlineVisible = () => {
-  emit("toggle-outline-visible");
-};
-
-const toggleOutlineCollapse = (collapsed: boolean) => {
-  emit("toggle-outline-collapse", collapsed);
+const updateOutlineVisible = (visible: boolean) => {
+  emit("toggle-outline-visible", visible);
 };
 
 const handleSelectFile = (file: TxtFile) => {

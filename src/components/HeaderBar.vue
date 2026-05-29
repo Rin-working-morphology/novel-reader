@@ -65,15 +65,13 @@
 
 <script setup lang="ts">
 import { NLayoutHeader, NButton, NSelect, NGradientText, NDropdown, NIcon } from "naive-ui";
-import { ListOutline, SunnyOutline, MoonOutline, Close, SettingsOutline } from "@vicons/ionicons5";
+import { SunnyOutline, MoonOutline, Close, SettingsOutline } from "@vicons/ionicons5";
 import { renderIcon } from "../utils/icon";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Chapter } from "../services/fileService";
 import { computed } from "vue";
 
 interface Props {
-  sidebarCollapsed: boolean;
-  outlineVisible: boolean;
   theme: string;
   title: string;
   chapters: Chapter[];
@@ -82,7 +80,6 @@ interface Props {
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
-  "toggle-outline": [];
   "toggle-theme": [];
   "chapter-changed": [index: number];
 }>();
@@ -96,7 +93,6 @@ const renderThemeIcon = (theme: string) => {
 };
 
 const dropDownOptions = computed(() => [
-  { label: "章节概览", key: "chapter-overview", icon: renderIcon(ListOutline) },
   {
     label: (props.theme === "default" ? "浅色" : "深色") + "模式",
     key: "theme",
@@ -115,10 +111,6 @@ const handleJumpToChapter = (index: number) => {
   emit("chapter-changed", index);
 };
 
-const handleToggleOutline = () => {
-  emit("toggle-outline");
-};
-
 const close = async () => {
   await getCurrentWindow()?.hide();
 };
@@ -126,9 +118,6 @@ const close = async () => {
 const handleMenuSelect = (key: string) => {
   if (key === "theme") {
     emit("toggle-theme");
-  }
-  if (key === "chapter-overview") {
-    handleToggleOutline();
   }
 };
 </script>

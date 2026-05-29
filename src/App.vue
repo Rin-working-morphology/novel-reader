@@ -7,11 +7,9 @@
       :theme="theme"
       :sidebar-collapsed="sidebarCollapsed"
       :outline-visible="outlineVisible"
-      :outline-collapsed="appearanceSettings.outline_collapsed"
       @toggle-theme="toggleTheme"
       @toggle-sidebar="handleToggleSidebar"
       @toggle-outline-visible="handleToggleOutlineVisible"
-      @toggle-outline-collapse="handleToggleOutlineCollapse"
     />
   </n-config-provider>
 </template>
@@ -30,7 +28,6 @@ const appearanceSettings = ref<AppearanceSettings>({
   theme: "default",
   show_file_sidebar: true,
   show_outline_sidebar: false,
-  outline_collapsed: false,
 });
 
 // 主题管理
@@ -69,7 +66,11 @@ const loadAppearanceSettings = async () => {
   try {
     const settings = await FileService.loadAppearanceSettings();
     if (settings) {
-      appearanceSettings.value = settings;
+      appearanceSettings.value = {
+        theme: settings.theme,
+        show_file_sidebar: settings.show_file_sidebar,
+        show_outline_sidebar: settings.show_outline_sidebar,
+      };
       theme.value = settings.theme;
       nTheme.value = settings.theme === "default" ? null : darkTheme;
       sidebarCollapsed.value = settings.show_file_sidebar;
@@ -112,13 +113,9 @@ const handleToggleSidebar = (collapsed: boolean) => {
   appearanceSettings.value.show_file_sidebar = collapsed;
 };
 
-const handleToggleOutlineVisible = () => {
-  outlineVisible.value = !outlineVisible.value;
+const handleToggleOutlineVisible = (visible: boolean) => {
+  outlineVisible.value = visible;
   appearanceSettings.value.show_outline_sidebar = outlineVisible.value;
-};
-
-const handleToggleOutlineCollapse = (collapsed: boolean) => {
-  appearanceSettings.value.outline_collapsed = collapsed;
 };
 
 // 在组件挂载时添加事件监听
