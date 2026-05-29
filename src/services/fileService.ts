@@ -11,6 +11,8 @@ export interface Chapter {
   title: string;
   content: string;
   html_content: string;
+  href?: string;
+  anchor?: string;
   start_pos: number;
   end_pos: number;
   images: Record<string, string>;
@@ -25,6 +27,9 @@ export interface EpubChapterInfo {
   title: string;
   index: number;
   spine_id: string;
+  spine_index: number;
+  href?: string;
+  anchor?: string;
   level: number;
   parent_index?: number;
   detection_method: string;

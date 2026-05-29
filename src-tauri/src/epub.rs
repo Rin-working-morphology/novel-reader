@@ -14,6 +14,8 @@ pub struct EpubChapter {
     pub title: String,
     pub content: String,
     pub html_content: String,
+    pub href: Option<String>,
+    pub anchor: Option<String>,
     pub level: u8,                   // 章节层级 (1=章, 2=节, 3=小节)
     pub parent_index: Option<usize>, // 父章节索引
     pub toc_entry: Option<String>,   // TOC中的原始条目
@@ -28,6 +30,7 @@ pub struct EpubChapterInfo {
     pub spine_id: String,
     pub spine_index: usize,
     pub href: Option<String>,
+    pub anchor: Option<String>,
     pub level: u8,
     pub parent_index: Option<usize>,
     pub detection_method: String,
@@ -59,6 +62,7 @@ struct ChapterRef {
     spine_index: usize,
     spine_id: String,
     href: Option<String>,
+    anchor: Option<String>,
     level: u8,
     parent_index: Option<usize>,
     toc_entry: Option<String>,
@@ -209,6 +213,8 @@ fn build_chapter_refs(epub_doc: &EpubDocument, toc_entries: &[TocEntry]) -> Vec<
         let index = chapter_refs.len();
         toc_to_chapter_index.insert(toc_index, index);
 
+        let anchor = split_href(href).1.map(|value| value.to_string());
+
         chapter_refs.push(ChapterRef {
             title: normalize_title(&toc_entry.title)
                 .unwrap_or_else(|| format!("第{}章", index + 1)),
@@ -220,6 +226,7 @@ fn build_chapter_refs(epub_doc: &EpubDocument, toc_entries: &[TocEntry]) -> Vec<
                 .map(|item| item.idref.clone())
                 .unwrap_or_else(|| spine_index.to_string()),
             href: Some(href.to_string()),
+            anchor,
             level: toc_entry.level.max(1),
             parent_index,
             toc_entry: Some(toc_entry.title.clone()),
@@ -250,6 +257,7 @@ fn build_spine_fallback_chapter_refs(epub_doc: &EpubDocument) -> Vec<ChapterRef>
                 .resources
                 .get(&item.idref)
                 .map(|(path, _)| path_to_epub_href(path)),
+            anchor: None,
             level: 1,
             parent_index: None,
             toc_entry: None,
@@ -869,6 +877,8 @@ pub async fn load_epub_file(file_path: String) -> Result<Vec<EpubChapter>, Strin
             title,
             content: clean_content,
             html_content: processed_html,
+            href: chapter_ref.href,
+            anchor: chapter_ref.anchor,
             level: chapter_ref.level,
             parent_index: chapter_ref.parent_index,
             toc_entry: chapter_ref.toc_entry,
@@ -902,6 +912,7 @@ pub async fn get_epub_info(file_path: String) -> Result<Vec<EpubChapterInfo>, St
                     spine_id: chapter_ref.spine_id,
                     spine_index: chapter_ref.spine_index,
                     href: chapter_ref.href,
+                    anchor: chapter_ref.anchor,
                     level: chapter_ref.level,
                     parent_index: chapter_ref.parent_index,
                     detection_method: chapter_ref.detection_method,
@@ -923,6 +934,7 @@ pub async fn get_epub_info(file_path: String) -> Result<Vec<EpubChapterInfo>, St
             spine_id: chapter_ref.spine_id,
             spine_index: chapter_ref.spine_index,
             href: chapter_ref.href,
+            anchor: chapter_ref.anchor,
             level: chapter_ref.level,
             parent_index: chapter_ref.parent_index,
             detection_method,
@@ -971,6 +983,8 @@ pub async fn load_epub_chapter(
         title,
         content: clean_content,
         html_content: processed_html,
+        href: chapter_ref.href,
+        anchor: chapter_ref.anchor,
         level: chapter_ref.level,
         parent_index: chapter_ref.parent_index,
         toc_entry: chapter_ref.toc_entry,

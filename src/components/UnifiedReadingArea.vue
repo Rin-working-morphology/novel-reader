@@ -32,7 +32,7 @@ import BaseReadingArea from "./BaseReadingArea.vue";
 import TxtContentRenderer from "./TxtContentRenderer.vue";
 import EpubContentRenderer from "./EpubContentRenderer.vue";
 import { useReading, useScrollPosition } from "../composables/useReading";
-import { type TxtFile } from "../services/fileService";
+import { type Chapter, type TxtFile } from "../services/fileService";
 
 interface Props {
   currentFile: TxtFile | null;
@@ -60,6 +60,7 @@ const {
   loadSingleEpubChapter,
 } = useReading();
 const { restoreScrollPosition } = useScrollPosition(baseReadingAreaRef);
+const loadingChapterPromises = new Map<number, Promise<Chapter | undefined>>();
 
 // 判断文件类型
 const isTxtFile = computed(() => {
@@ -70,11 +71,38 @@ const isEpubFile = computed(() => {
   return props.currentFile?.path.toLowerCase().endsWith(".epub") || false;
 });
 
+const getChapterAnchor = (chapter: Chapter | undefined) => {
+  if (chapter?.anchor) {
+    return chapter.anchor;
+  }
+
+  const fragment = chapter?.href?.split("#")[1]?.split("?")[0];
+  return fragment || "";
+};
+
+const ensureEpubChapterLoaded = async (index: number) => {
+  if (!props.currentFile || !chapters.value[index]?.content) {
+    if (!props.currentFile || index < 0 || index >= chapters.value.length) {
+      return;
+    }
+
+    if (!loadingChapterPromises.has(index)) {
+      const promise = loadSingleEpubChapter(props.currentFile.path, index).finally(() => {
+        loadingChapterPromises.delete(index);
+      });
+      loadingChapterPromises.set(index, promise);
+    }
+
+    await loadingChapterPromises.get(index);
+  }
+};
+
 // 监听文件变化，根据类型加载章节
 watch(
   () => props.currentFile,
   async (newFile) => {
     if (newFile) {
+      loadingChapterPromises.clear();
       await nextTick();
 
       let loadedChapters;
@@ -128,13 +156,13 @@ watch(
     } else if (isEpubFile.value) {
       // EPUB文件的章节切换逻辑
       if (props.currentFile && newIndex >= 0) {
-        // 检查当前章节是否已加载内容
-        const currentChapter = chapters.value[newIndex];
-        if (!currentChapter?.content) {
-          await loadSingleEpubChapter(props.currentFile.path, newIndex);
+        const shouldRestoreProgress =
+          props.restoring && newIndex === props.progress.current_chapter && props.progress.scroll_position > 0;
 
+        await ensureEpubChapterLoaded(newIndex);
+
+        if (shouldRestoreProgress) {
           await nextTick();
-          // 恢复滚动位置
           restoreScrollPosition(props.progress.scroll_position);
         }
       }
@@ -166,8 +194,25 @@ const scrollToPosition = (position: number) => {
   }
 };
 
+const scrollToChapterTarget = async (index: number) => {
+  if (isEpubFile.value) {
+    await ensureEpubChapterLoaded(index);
+    currentChapterIndex.value = index;
+
+    await nextTick();
+    const anchor = getChapterAnchor(chapters.value[index]);
+    if (anchor && baseReadingAreaRef.value?.scrollToAnchor(anchor)) {
+      return;
+    }
+  }
+
+  await nextTick();
+  scrollToPosition(0);
+};
+
 defineExpose({
   contentRef: baseReadingAreaRef,
   scrollToPosition,
+  scrollToChapterTarget,
 });
 </script>

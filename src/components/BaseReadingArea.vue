@@ -156,6 +156,36 @@ const getChapterContentScrollTop = () => {
   return scrollbar.containerScrollTop + chapterContent.getBoundingClientRect().top - container.getBoundingClientRect().top;
 };
 
+const getAnchorCandidates = (anchor: string) => {
+  const candidates = [anchor];
+
+  try {
+    candidates.push(decodeURIComponent(anchor));
+  } catch {
+    // Some EPUBs contain raw fragment ids that are not URI encoded.
+  }
+
+  return Array.from(new Set(candidates.map((value) => value.trim()).filter(Boolean)));
+};
+
+const findAnchorElement = (anchor: string) => {
+  const chapterContent = chapterContentRef.value;
+  if (!chapterContent) {
+    return null;
+  }
+
+  const candidates = getAnchorCandidates(anchor);
+  const elements = chapterContent.querySelectorAll<HTMLElement>("[id], [name]");
+
+  for (const element of elements) {
+    if (candidates.includes(element.id) || candidates.includes(element.getAttribute("name") || "")) {
+      return element;
+    }
+  }
+
+  return null;
+};
+
 // 暴露方法供父组件调用
 const scrollToPosition = (position: number) => {
   if (contentRef.value) {
@@ -164,9 +194,24 @@ const scrollToPosition = (position: number) => {
   }
 };
 
+const scrollToAnchor = (anchor: string) => {
+  const scrollbar = contentRef.value?.scrollbarInstRef;
+  const container = scrollbar?.containerRef;
+  const target = findAnchorElement(anchor);
+
+  if (!scrollbar || !container || !target || !contentRef.value) {
+    return false;
+  }
+
+  const top = scrollbar.containerScrollTop + target.getBoundingClientRect().top - container.getBoundingClientRect().top;
+  contentRef.value.scrollTo({ top });
+  return true;
+};
+
 defineExpose({
   contentRef,
   scrollToPosition,
+  scrollToAnchor,
   checkContentHeight,
 });
 </script>

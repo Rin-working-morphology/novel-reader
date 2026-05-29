@@ -61,6 +61,7 @@ const sanitizedHtmlContent = computed(() => {
       "h5",
       "h6",
       "br",
+      "a",
       "img",
       "strong",
       "em",
@@ -68,7 +69,7 @@ const sanitizedHtmlContent = computed(() => {
       "i",
       "b",
     ],
-    ALLOWED_ATTR: ["src", "alt", "title", "class", "style"],
+    ALLOWED_ATTR: ["src", "href", "alt", "title", "class", "style", "id", "name"],
     ALLOW_DATA_ATTR: false,
   });
 });

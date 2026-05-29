@@ -134,9 +134,12 @@ const handleChapterChanged = async (index: number) => {
   updateCurrentChapter(index);
 
   await nextTick();
-  // 滚动到顶部
   if (readingAreaRef.value) {
-    readingAreaRef.value.scrollToPosition(0);
+    if (readingAreaRef.value.scrollToChapterTarget) {
+      await readingAreaRef.value.scrollToChapterTarget(index);
+    } else {
+      readingAreaRef.value.scrollToPosition(0);
+    }
   }
 };
 

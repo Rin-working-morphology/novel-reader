@@ -51,6 +51,8 @@ export function useReading() {
         title: info.title,
         content: "", // 暂时为空
         html_content: "",
+        href: info.href,
+        anchor: info.anchor,
         start_pos: 0,
         end_pos: 0,
         images: {},
@@ -86,6 +88,8 @@ export function useReading() {
       if (chapters.value[chapterIndex]) {
         chapters.value[chapterIndex].content = chapter.content;
         chapters.value[chapterIndex].html_content = chapter.html_content;
+        chapters.value[chapterIndex].href = chapter.href;
+        chapters.value[chapterIndex].anchor = chapter.anchor;
         chapters.value[chapterIndex].level = chapter.level || 1;
         chapters.value[chapterIndex].parent_index = chapter.parent_index;
         chapters.value[chapterIndex].toc_entry = chapter.toc_entry;
