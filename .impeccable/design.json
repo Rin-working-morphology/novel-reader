@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-29T00:00:00+08:00",
+  "title": "Design System: Novel Reader",
+  "extensions": {
+    "colorMeta": {
+      "light-reading-surface": {
+        "role": "neutral",
+        "displayName": "Light Reading Surface",
+        "canonical": "#f3ead3",
+        "tonalRamp": ["oklch(18% 0.015 88)", "oklch(28% 0.018 88)", "oklch(40% 0.02 88)", "oklch(54% 0.024 88)", "oklch(68% 0.028 88)", "oklch(80% 0.03 88)", "oklch(88% 0.032 88)", "oklch(94% 0.032 88)"]
+      },
+      "light-accent": {
+        "role": "primary",
+        "displayName": "Quiet Olive Accent",
+        "canonical": "#8da101",
+        "tonalRamp": ["oklch(18% 0.06 120)", "oklch(28% 0.08 120)", "oklch(38% 0.1 120)", "oklch(50% 0.12 120)", "oklch(62% 0.13 120)", "oklch(74% 0.11 120)", "oklch(86% 0.07 120)", "oklch(94% 0.04 120)"]
+      },
+      "dark-reading-surface": {
+        "role": "neutral",
+        "displayName": "Dark Reading Surface",
+        "canonical": "#1a1b26",
+        "tonalRamp": ["oklch(14% 0.025 270)", "oklch(20% 0.03 270)", "oklch(28% 0.032 270)", "oklch(38% 0.03 270)", "oklch(50% 0.026 270)", "oklch(64% 0.02 270)", "oklch(78% 0.014 270)", "oklch(92% 0.008 270)"]
+      },
+      "dark-accent": {
+        "role": "primary",
+        "displayName": "Soft Violet Accent",
+        "canonical": "#bb9af7",
+        "tonalRamp": ["oklch(18% 0.08 300)", "oklch(28% 0.11 300)", "oklch(40% 0.14 300)", "oklch(54% 0.16 300)", "oklch(68% 0.15 300)", "oklch(78% 0.12 300)", "oklch(88% 0.08 300)", "oklch(95% 0.04 300)"]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Current book title, section titles, and major controls."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Novel content and readable prose."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Metadata, secondary controls, and compact navigation."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "state-transition",
+        "value": "150ms-250ms ease-out",
+        "purpose": "Use only for hover, focus, collapse, and mode changes."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "640px"
+      },
+      {
+        "name": "desktop",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "A quiet primary action for selecting a folder or confirming a rare task.",
+      "html": "<button class=\"ds-btn-primary\">Select folder</button>",
+      "css": ".ds-btn-primary { min-height: 34px; padding: 0 14px; border: 1px solid #8da101; border-radius: 6px; background: transparent; color: #5c6a72; font: 500 14px/1.4 Lato, system-ui, sans-serif; transition: background-color 180ms ease-out, border-color 180ms ease-out; } .ds-btn-primary:hover { background: #e5e6c5; } .ds-btn-primary:focus-visible { outline: 2px solid #8da101; outline-offset: 2px; }"
+    },
+    {
+      "name": "Reading Body",
+      "kind": "custom",
+      "refersTo": "reading-body",
+      "description": "The signature long-form reading surface.",
+      "html": "<article class=\"ds-reading-body\"><p>Readable body text stays central while controls step back.</p></article>",
+      "css": ".ds-reading-body { max-width: 72ch; padding: 120px 24px; border-radius: 8px; background: #f3ead3; color: #5c6a72; font: 400 16px/1.8 Lato, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Chrome Panel",
+      "kind": "nav",
+      "refersTo": "chrome-panel",
+      "description": "A restrained support panel for files, outline, or settings.",
+      "html": "<nav class=\"ds-chrome-panel\"><div class=\"ds-panel-title\">Chapters</div><button class=\"ds-panel-item\">Current chapter</button></nav>",
+      "css": ".ds-chrome-panel { padding: 16px; border: 1px solid #ddd8be; border-radius: 6px; background: #f3ead3; color: #5c6a72; font-family: Lato, system-ui, sans-serif; } .ds-panel-title { margin-bottom: 12px; font-size: 16px; font-weight: 600; } .ds-panel-item { width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: inherit; text-align: left; } .ds-panel-item:hover, .ds-panel-item:focus-visible { background: #e5e6c5; outline: none; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Floating Page",
+    "overview": "The interface exists to protect the act of reading. It should feel low-profile, lightweight, and eye-friendly, with chrome that appears only to orient the user and then steps back. The strongest visual signal is the body text; everything else is supporting structure.",
+    "keyCharacteristics": [
+      "Discreet application chrome around a calm reading surface.",
+      "Restrained color, used for actions and current state instead of decoration.",
+      "Dense enough for desktop utility, quiet enough for long reading sessions.",
+      "Transparent mode as the lightest state: readable floating text with minimal surrounding UI."
+    ],
+    "rules": [
+      {
+        "name": "The Ten Percent Accent Rule",
+        "body": "Accent color is reserved for primary action, active state, and focus. If the page starts to look green or purple, the accent is overused.",
+        "section": "colors"
+      },
+      {
+        "name": "The Transparent Means Lighter Rule",
+        "body": "Transparent mode should remove chrome before it removes legibility. Body text contrast must remain readable even when panels vanish.",
+        "section": "colors"
+      },
+      {
+        "name": "The Body Text Wins Rule",
+        "body": "When a component competes visually with the novel text, reduce the component before reducing the text.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Decorative Glass Rule",
+        "body": "Blur and translucent panels are allowed only to keep floating text or controls readable. They are not a default card style.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the product register: familiar desktop tool patterns, restrained motion, and predictable controls.",
+      "Do make transparent mode the lightest UI state, with floating readable body text as the priority.",
+      "Do remove or redesign existing structures when they do not serve reading, including the current half-collapsed outline pattern.",
+      "Do keep accent color rare and meaningful.",
+      "Do verify contrast for body text in light, dark, and transparent contexts."
+    ],
+    "donts": [
+      "Don't make this feel like a complex library-management app.",
+      "Don't make it feel like a commercial reading platform, storefront, or recommendation product.",
+      "Don't preserve current rough layout decisions as design requirements.",
+      "Don't add decorative gradients, glass cards, heavy shadows, or large rounded cards.",
+      "Don't let file management, chapter controls, or settings compete with the reading body."
+    ]
+  }
+}
