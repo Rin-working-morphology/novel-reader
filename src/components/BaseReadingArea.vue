@@ -36,45 +36,56 @@
           :content-class="`content-text ${theme === 'default' ? 'frosted-glass' : ''}`"
           @scroll="handleScroll"
         >
-          <!-- 顶部遮罩层导航 -->
-          <div
-            class="chapter-overlay top-overlay"
-            v-if="showTopNavigation"
-          >
+          <div class="reading-flow">
             <div
-              class="overlay-content"
-              @click="handleJumpToChapter(currentChapterIndex - 1)"
+              v-if="hasPreviousChapter"
+              class="chapter-boundary chapter-boundary--previous"
             >
-              <n-icon size="24">
-                <ArrowBackOutline />
-              </n-icon>
-              <span class="overlay-text">返回上一章</span>
-              <span class="overlay-chapter-title">{{ chapters[currentChapterIndex - 1]?.title }}</span>
+              <button
+                type="button"
+                class="chapter-boundary-button"
+                @click="handleJumpToChapter(currentChapterIndex - 1)"
+              >
+                <n-icon size="20">
+                  <ArrowBackOutline />
+                </n-icon>
+                <span class="chapter-boundary-copy">
+                  <span class="chapter-boundary-action">返回上一章</span>
+                  <span class="chapter-boundary-title">{{ chapters[currentChapterIndex - 1]?.title }}</span>
+                </span>
+              </button>
             </div>
-          </div>
 
-          <!-- 内容渲染插槽 -->
-          <slot
-            name="content"
-            :current-chapter="currentChapter"
-            :chapters="chapters"
-            :current-chapter-index="currentChapterIndex"
-          />
-
-          <!-- 底部遮罩层导航 -->
-          <div
-            class="chapter-overlay bottom-overlay"
-            v-if="showBottomNavigation"
-          >
             <div
-              class="overlay-content"
-              @click="handleJumpToChapter(currentChapterIndex + 1)"
+              ref="chapterContentRef"
+              class="chapter-content-anchor"
             >
-              <span class="overlay-chapter-title">{{ chapters[currentChapterIndex + 1]?.title }}</span>
-              <span class="overlay-text">前往下一章</span>
-              <n-icon size="24">
-                <ArrowForwardOutline />
-              </n-icon>
+              <!-- 内容渲染插槽 -->
+              <slot
+                name="content"
+                :current-chapter="currentChapter"
+                :chapters="chapters"
+                :current-chapter-index="currentChapterIndex"
+              />
+            </div>
+
+            <div
+              v-if="hasNextChapter"
+              class="chapter-boundary chapter-boundary--next"
+            >
+              <button
+                type="button"
+                class="chapter-boundary-button"
+                @click="handleJumpToChapter(currentChapterIndex + 1)"
+              >
+                <span class="chapter-boundary-copy">
+                  <span class="chapter-boundary-action">前往下一章</span>
+                  <span class="chapter-boundary-title">{{ chapters[currentChapterIndex + 1]?.title }}</span>
+                </span>
+                <n-icon size="20">
+                  <ArrowForwardOutline />
+                </n-icon>
+              </button>
             </div>
           </div>
         </n-scrollbar>
@@ -84,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from "vue";
+import { computed, ref } from "vue";
 import { NLayoutContent, NEmpty, NIcon, NScrollbar, NSpin } from "naive-ui";
 import { BookOutline, ArrowForwardOutline, ArrowBackOutline } from "@vicons/ionicons5";
 import { type TxtFile, type Chapter } from "../services/fileService";
@@ -104,43 +115,21 @@ const emit = defineEmits<{
 }>();
 
 const contentRef = ref();
-const showTopOverlay = ref(false);
-const showBottomOverlay = ref(false);
+const chapterContentRef = ref<HTMLElement | null>(null);
 
 const currentChapter = computed(() => {
   return props.chapters[props.currentChapterIndex] || null;
 });
 
-const showTopNavigation = computed(() => {
-  return props.chapters.length > 1 && props.currentChapterIndex > 0 && showTopOverlay.value;
+const hasPreviousChapter = computed(() => {
+  return props.chapters.length > 1 && props.currentChapterIndex > 0;
 });
 
-const showBottomNavigation = computed(() => {
-  return props.chapters.length > 1 && props.currentChapterIndex < props.chapters.length - 1 && showBottomOverlay.value;
+const hasNextChapter = computed(() => {
+  return props.chapters.length > 1 && props.currentChapterIndex < props.chapters.length - 1;
 });
 
-// 检查内容是否足够长以触发滚动
-const checkContentHeight = () => {
-  if (contentRef.value?.scrollbarInstRef) {
-    if (props.chapters.length > 1 && props.currentChapterIndex > 0) {
-      showTopOverlay.value = true;
-    }
-    const scrollHeight = contentRef.value.scrollbarInstRef.containerRef.scrollHeight;
-    const clientHeight = contentRef.value.scrollbarInstRef.containerRef.clientHeight;
-
-    // 如果内容高度小于等于容器高度，说明没有滚动条，默认显示覆盖层
-    if (
-      scrollHeight <= clientHeight &&
-      props.chapters.length > 1 &&
-      props.currentChapterIndex < props.chapters.length - 1
-    ) {
-      // 只有在有多章节且有下一章时才显示底部遮罩层
-      showBottomOverlay.value = true;
-    } else {
-      showBottomOverlay.value = false;
-    }
-  }
-};
+const checkContentHeight = () => {};
 
 const handleJumpToChapter = (index: number) => {
   emit("chapter-changed", index);
@@ -149,24 +138,29 @@ const handleJumpToChapter = (index: number) => {
 const handleScroll = () => {
   if (contentRef.value?.scrollbarInstRef) {
     const scrollTop = contentRef.value.scrollbarInstRef.containerScrollTop;
-    const scrollHeight = contentRef.value.scrollbarInstRef.containerRef.scrollHeight;
-    const clientHeight = contentRef.value.scrollbarInstRef.containerRef.clientHeight;
-
-    showTopOverlay.value = scrollTop < 120;
-    showBottomOverlay.value = scrollHeight - scrollTop - clientHeight < 120;
-
     emit("scroll", scrollTop);
   }
+};
+
+const getChapterContentScrollTop = () => {
+  const scrollbar = contentRef.value?.scrollbarInstRef;
+  const container = scrollbar?.containerRef;
+  const chapterContent = chapterContentRef.value;
+
+  if (!scrollbar || !container || !chapterContent) {
+    return 0;
+  }
+
+  return scrollbar.containerScrollTop + chapterContent.getBoundingClientRect().top - container.getBoundingClientRect().top;
 };
 
 // 暴露方法供父组件调用
 const scrollToPosition = (position: number) => {
   if (contentRef.value) {
-    contentRef.value.scrollTo({ top: position });
+    const top = position === 0 && hasPreviousChapter.value ? getChapterContentScrollTop() : position;
+    contentRef.value.scrollTo({ top });
   }
 };
-
-onMounted(() => {});
 
 defineExpose({
   contentRef,
@@ -198,8 +192,13 @@ defineExpose({
 :deep(.n-scrollbar-content.content-text) {
   flex: 1;
   overflow-y: auto;
-  padding: 120px 24px;
+  padding: 96px 24px 112px;
   line-height: 1.8;
+}
+
+.reading-flow {
+  width: min(100%, 72ch);
+  margin: 0 auto;
 }
 
 .frosted-glass {
@@ -209,58 +208,72 @@ defineExpose({
   border-radius: 8px;
 }
 
-.chapter-overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 120px;
+.chapter-boundary {
+  display: flex;
+  justify-content: center;
+  color: var(--n-text-color);
+}
+
+.chapter-boundary--previous {
+  margin-bottom: 48px;
+}
+
+.chapter-boundary--next {
+  margin-top: 64px;
+}
+
+.chapter-boundary-button {
+  width: min(100%, 420px);
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
-  z-index: 10;
-}
-
-.top-overlay {
-  top: 0;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--n-text-color) 10%, transparent) 0%, transparent 100%);
-}
-
-.bottom-overlay {
-  bottom: 0;
-  background: linear-gradient(0deg, color-mix(in srgb, var(--n-text-color) 10%, transparent) 0%, transparent 100%);
-}
-
-.overlay-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--n-text-color);
-  padding: 12px 24px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  gap: 14px;
+  padding: 12px 18px;
+  border: 1px solid var(--n-border-color);
+  border-radius: 8px;
+  color: inherit;
+  background: color-mix(in srgb, var(--n-card-color) 78%, transparent);
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  font: inherit;
+  line-height: 1.4;
+  text-align: left;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
-.overlay-content:hover {
-  background: linear-gradient(0deg, color-mix(in srgb, var(--n-text-color) 20%, transparent) 0%, transparent 100%);
+.chapter-boundary-button:hover {
+  background: var(--n-hover-color);
+  border-color: color-mix(in srgb, var(--n-primary-color) 45%, var(--n-border-color));
+  color: var(--n-primary-color);
 }
 
-.overlay-text {
+.chapter-boundary-button:focus-visible {
+  outline: 2px solid var(--n-primary-color);
+  outline-offset: 3px;
+}
+
+.chapter-boundary-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chapter-boundary-action {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.overlay-chapter-title {
-  font-size: 12px;
-  opacity: 0.8;
-  max-width: 200px;
+.chapter-boundary-title {
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
+  opacity: 0.78;
 }
 
 .loading-state {
