@@ -4,20 +4,14 @@
     style="height: 60px; padding: 0 16px"
     bordered
   >
-    <div
-      class="header-content"
-      data-tauri-drag-region
-    >
-      <div
-        class="header-left"
-        data-tauri-drag-region
-      >
-        <div
-          class="book-title"
+    <div class="header-content" data-tauri-drag-region>
+      <div class="header-left" data-tauri-drag-region>
+        <n-gradient-text
           data-tauri-drag-region
-        >
-          {{ title }}
-        </div>
+          :size="16"
+          style="font-weight: 600"
+          >{{ title }}
+        </n-gradient-text>
       </div>
 
       <!-- 章节导航 -->
@@ -40,28 +34,14 @@
         />
       </div>
 
-      <div
-        class="header-right"
-        data-tauri-drag-region
-      >
-        <n-dropdown
-          :options="dropDownOptions"
-          @select="handleMenuSelect"
-        >
-          <n-button
-            quaternary
-            circle
-            class="menu-button"
-          >
+      <div class="header-right" data-tauri-drag-region>
+        <n-dropdown :options="dropDownOptions" @select="handleMenuSelect">
+          <n-button quaternary circle class="menu-button">
             <n-icon><SettingsOutline /></n-icon>
           </n-button>
         </n-dropdown>
 
-        <n-button
-          quaternary
-          circle
-          @click="close"
-        >
+        <n-button quaternary circle @click="close">
           <n-icon><Close /></n-icon>
         </n-button>
       </div>
@@ -71,8 +51,21 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { NLayoutHeader, NButton, NTreeSelect, NDropdown, NIcon, type TreeSelectOption } from "naive-ui";
-import { SunnyOutline, MoonOutline, Close, SettingsOutline } from "@vicons/ionicons5";
+import {
+  NLayoutHeader,
+  NButton,
+  NTreeSelect,
+  NDropdown,
+  NIcon,
+  NGradientText,
+  type TreeSelectOption,
+} from "naive-ui";
+import {
+  SunnyOutline,
+  MoonOutline,
+  Close,
+  SettingsOutline,
+} from "@vicons/ionicons5";
 import { renderIcon } from "../utils/icon";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Chapter } from "../services/fileService";
@@ -124,11 +117,13 @@ const getParentIndex = (chapter: Chapter, index: number) => {
 };
 
 const chapterOptions = computed<TreeSelectOption[]>(() => {
-  const nodes = props.chapters.map((chapter, index): TreeSelectOption => ({
-    key: index,
-    label: chapter.title || `第${index + 1}章`,
-    children: [],
-  }));
+  const nodes = props.chapters.map(
+    (chapter, index): TreeSelectOption => ({
+      key: index,
+      label: chapter.title || `第${index + 1}章`,
+      children: [],
+    }),
+  );
   const roots: TreeSelectOption[] = [];
 
   nodes.forEach((node, index) => {
@@ -150,7 +145,9 @@ const chapterOptions = computed<TreeSelectOption[]>(() => {
   return roots;
 });
 
-const handleJumpToChapter = (value: string | number | Array<string | number> | null) => {
+const handleJumpToChapter = (
+  value: string | number | Array<string | number> | null,
+) => {
   if (typeof value === "number") {
     emit("chapter-changed", value);
   }
@@ -189,7 +186,7 @@ const handleMenuSelect = (key: string) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--n-text-color);
+  color: var(--n-primary-color);
   font-size: 16px;
   font-weight: 600;
   line-height: 1.4;
