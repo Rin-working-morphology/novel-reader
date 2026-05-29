@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
+use std::path::{Path, PathBuf};
 
 // 增强的章节结构
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,6 +26,8 @@ pub struct EpubChapterInfo {
     pub title: String,
     pub index: usize,
     pub spine_id: String,
+    pub spine_index: usize,
+    pub href: Option<String>,
     pub level: u8,
     pub parent_index: Option<usize>,
     pub detection_method: String,
@@ -36,17 +39,30 @@ type EpubDocument = EpubDoc<BufReader<File>>;
 #[derive(Debug, Clone)]
 struct TocEntry {
     title: String,
-    href: String,
+    href: Option<String>,
     level: u8,
-    play_order: Option<u32>,
+    parent_toc_index: Option<usize>,
 }
 
-// 层级趋势枚举
-#[derive(Debug, PartialEq)]
-enum LevelTrend {
-    Increasing, // 层级递增
-    Decreasing, // 层级递减
-    Stable,     // 层级稳定
+#[derive(Debug, Clone)]
+struct RawTocEntry {
+    title: String,
+    href: Option<String>,
+    level: u8,
+    children: Vec<RawTocEntry>,
+}
+
+#[derive(Debug, Clone)]
+struct ChapterRef {
+    title: String,
+    index: usize,
+    spine_index: usize,
+    spine_id: String,
+    href: Option<String>,
+    level: u8,
+    parent_index: Option<usize>,
+    toc_entry: Option<String>,
+    detection_method: String,
 }
 
 // 处理HTML中的图片引用
@@ -169,126 +185,100 @@ fn is_valid_chapter_title_enhanced(title: &str) -> bool {
         && title.chars().any(|c| c.is_alphabetic() || c.is_numeric())
 }
 
-// 构建spine到TOC的映射关系
-fn build_spine_toc_mapping(
-    epub_doc: &mut EpubDocument,
+fn build_chapter_refs(epub_doc: &EpubDocument, toc_entries: &[TocEntry]) -> Vec<ChapterRef> {
+    if toc_entries.is_empty() {
+        return build_spine_fallback_chapter_refs(epub_doc);
+    }
+
+    let mut chapter_refs = Vec::new();
+    let mut toc_to_chapter_index: HashMap<usize, usize> = HashMap::new();
+
+    for (toc_index, toc_entry) in toc_entries.iter().enumerate() {
+        let Some(href) = toc_entry.href.as_deref() else {
+            continue;
+        };
+        let Some(spine_index) = find_spine_index_by_href(epub_doc, href) else {
+            continue;
+        };
+
+        let parent_index = find_nearest_toc_parent_index(
+            toc_entry.parent_toc_index,
+            toc_entries,
+            &toc_to_chapter_index,
+        );
+        let index = chapter_refs.len();
+        toc_to_chapter_index.insert(toc_index, index);
+
+        chapter_refs.push(ChapterRef {
+            title: normalize_title(&toc_entry.title)
+                .unwrap_or_else(|| format!("第{}章", index + 1)),
+            index,
+            spine_index,
+            spine_id: epub_doc
+                .spine
+                .get(spine_index)
+                .map(|item| item.idref.clone())
+                .unwrap_or_else(|| spine_index.to_string()),
+            href: Some(href.to_string()),
+            level: toc_entry.level.max(1),
+            parent_index,
+            toc_entry: Some(toc_entry.title.clone()),
+            detection_method: "TOC".to_string(),
+        });
+    }
+
+    if chapter_refs.is_empty() {
+        build_spine_fallback_chapter_refs(epub_doc)
+    } else {
+        chapter_refs
+    }
+}
+
+fn build_spine_fallback_chapter_refs(epub_doc: &EpubDocument) -> Vec<ChapterRef> {
+    epub_doc
+        .spine
+        .iter()
+        .enumerate()
+        .filter(|(_, item)| item.linear)
+        .enumerate()
+        .map(|(index, (spine_index, item))| ChapterRef {
+            title: format!("第{}章", index + 1),
+            index,
+            spine_index,
+            spine_id: item.idref.clone(),
+            href: epub_doc
+                .resources
+                .get(&item.idref)
+                .map(|(path, _)| path_to_epub_href(path)),
+            level: 1,
+            parent_index: None,
+            toc_entry: None,
+            detection_method: "SPINE_FALLBACK".to_string(),
+        })
+        .collect()
+}
+
+fn find_nearest_toc_parent_index(
+    mut parent_toc_index: Option<usize>,
     toc_entries: &[TocEntry],
-) -> Result<HashMap<usize, TocEntry>, String> {
-    let mut spine_to_toc = HashMap::new();
-
-    for toc_entry in toc_entries {
-        if let Some(spine_index) = find_spine_index_by_href(epub_doc, &toc_entry.href) {
-            spine_to_toc.insert(spine_index, toc_entry.clone());
-        }
-    }
-
-    Ok(spine_to_toc)
-}
-
-// 确定章节层级和父章节关系
-fn determine_chapter_hierarchy(
-    current_spine_index: usize,
-    spine_to_toc: &HashMap<usize, TocEntry>,
-    existing_chapters: &[EpubChapter],
-) -> (u8, Option<usize>) {
-    if let Some(toc_entry) = spine_to_toc.get(&current_spine_index) {
-        let level = toc_entry.level;
-        let parent_index = find_parent_chapter_index(level, existing_chapters);
-        return (level, parent_index);
-    }
-
-    let default_level = determine_default_level(current_spine_index, existing_chapters);
-    let parent_index = find_parent_chapter_index(default_level, existing_chapters);
-
-    (default_level, parent_index)
-}
-
-// 查找父章节索引
-fn find_parent_chapter_index(
-    current_level: u8,
-    existing_chapters: &[EpubChapter],
+    toc_to_chapter_index: &HashMap<usize, usize>,
 ) -> Option<usize> {
-    if current_level <= 1 {
-        return None;
-    }
-
-    for (index, chapter) in existing_chapters.iter().enumerate().rev() {
-        if chapter.level < current_level {
-            return Some(index);
+    while let Some(toc_index) = parent_toc_index {
+        if let Some(chapter_index) = toc_to_chapter_index.get(&toc_index) {
+            return Some(*chapter_index);
         }
+
+        parent_toc_index = toc_entries
+            .get(toc_index)
+            .and_then(|entry| entry.parent_toc_index);
     }
 
     None
 }
 
-// 确定默认层级
-fn determine_default_level(_current_spine_index: usize, existing_chapters: &[EpubChapter]) -> u8 {
-    if existing_chapters.is_empty() {
-        return 1;
-    }
-
-    let recent_levels: Vec<u8> = existing_chapters
-        .iter()
-        .rev()
-        .take(3)
-        .map(|ch| ch.level)
-        .collect();
-
-    if let Some(&last_level) = recent_levels.first() {
-        if recent_levels.iter().all(|&level| level == last_level) {
-            return last_level;
-        }
-
-        if recent_levels.len() >= 2 {
-            let trend = analyze_level_trend(&recent_levels);
-            match trend {
-                LevelTrend::Increasing => std::cmp::min(last_level + 1, 3),
-                LevelTrend::Decreasing => std::cmp::max(last_level.saturating_sub(1), 1),
-                LevelTrend::Stable => last_level,
-            }
-        } else {
-            last_level
-        }
-    } else {
-        1
-    }
-}
-
-// 分析层级趋势
-fn analyze_level_trend(levels: &[u8]) -> LevelTrend {
-    if levels.len() < 2 {
-        return LevelTrend::Stable;
-    }
-
-    let mut increasing = 0;
-    let mut decreasing = 0;
-
-    for i in 1..levels.len() {
-        if levels[i] > levels[i - 1] {
-            increasing += 1;
-        } else if levels[i] < levels[i - 1] {
-            decreasing += 1;
-        }
-    }
-
-    if increasing > decreasing {
-        LevelTrend::Increasing
-    } else if decreasing > increasing {
-        LevelTrend::Decreasing
-    } else {
-        LevelTrend::Stable
-    }
-}
-
 // 改进的spine索引查找函数
 fn find_spine_index_by_href(epub_doc: &EpubDocument, href: &str) -> Option<usize> {
-    let clean_href: &str = href
-        .split('#')
-        .next()
-        .unwrap_or(href)
-        .split('?')
-        .next()
-        .unwrap_or(href);
+    let clean_href = normalize_href_path(href);
 
     for (spine_index, spine_item) in epub_doc.spine.iter().enumerate() {
         if spine_item.idref == clean_href {
@@ -296,7 +286,7 @@ fn find_spine_index_by_href(epub_doc: &EpubDocument, href: &str) -> Option<usize
         }
 
         if let Some(ref id) = spine_item.id {
-            if id == clean_href {
+            if id == &clean_href {
                 return Some(spine_index);
             }
         }
@@ -304,7 +294,7 @@ fn find_spine_index_by_href(epub_doc: &EpubDocument, href: &str) -> Option<usize
 
     for (spine_index, spine_item) in epub_doc.spine.iter().enumerate() {
         if let Some((path, _)) = epub_doc.resources.get(&spine_item.idref) {
-            let path_str = path.to_string_lossy();
+            let path_str = normalize_path_string(&path.to_string_lossy());
 
             if path_str == clean_href {
                 return Some(spine_index);
@@ -316,13 +306,94 @@ fn find_spine_index_by_href(epub_doc: &EpubDocument, href: &str) -> Option<usize
                 }
             }
 
-            if path_str.ends_with(clean_href) {
+            if path_str.ends_with(&clean_href) {
                 return Some(spine_index);
             }
         }
     }
 
     None
+}
+
+fn split_href(href: &str) -> (&str, Option<&str>) {
+    let without_query = href.split('?').next().unwrap_or(href);
+    let mut parts = without_query.splitn(2, '#');
+    let path = parts.next().unwrap_or_default();
+    let fragment = parts.next().filter(|value| !value.trim().is_empty());
+    (path, fragment)
+}
+
+fn normalize_href_path(href: &str) -> String {
+    let (path, _) = split_href(href);
+    normalize_path_string(path)
+}
+
+fn normalize_path_string(path: &str) -> String {
+    let path = path.replace('\\', "/");
+    let mut parts = Vec::new();
+
+    for part in path.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            _ => parts.push(part),
+        }
+    }
+
+    parts.join("/")
+}
+
+fn path_to_epub_href(path: &Path) -> String {
+    normalize_path_string(&path.to_string_lossy())
+}
+
+fn resolve_relative_href(base_path: &Path, href: &str) -> String {
+    let (path_part, fragment) = split_href(href.trim());
+    let mut resolved = if path_part.is_empty() {
+        PathBuf::from(base_path)
+    } else {
+        base_path
+            .parent()
+            .map(|parent| parent.join(path_part))
+            .unwrap_or_else(|| PathBuf::from(path_part))
+    };
+
+    if resolved.as_os_str().is_empty() {
+        resolved = PathBuf::from(path_part);
+    }
+
+    let mut normalized = path_to_epub_href(&resolved);
+    if let Some(fragment) = fragment {
+        normalized.push('#');
+        normalized.push_str(fragment);
+    }
+
+    normalized
+}
+
+fn normalize_title(title: &str) -> Option<String> {
+    let title = Regex::new(r"\s+")
+        .ok()
+        .map(|re| re.replace_all(title, " ").trim().to_string())
+        .unwrap_or_else(|| title.trim().to_string());
+
+    if title.is_empty() {
+        None
+    } else {
+        Some(title)
+    }
+}
+
+fn detection_method_from_confidence(confidence: f32) -> String {
+    if confidence > 0.9 {
+        "TOC".to_string()
+    } else if confidence > 0.7 {
+        "HTML_HEADING".to_string()
+    } else {
+        "HEURISTIC".to_string()
+    }
 }
 
 // 处理当前章节的图片
@@ -500,48 +571,279 @@ fn get_filename_without_extension(filename: &str) -> String {
 
 // 提取TOC结构的主函数
 fn extract_toc_structure(epub_doc: &mut EpubDocument) -> Result<Vec<TocEntry>, String> {
-    if !epub_doc.toc.is_empty() {
-        let mut entries = Vec::new();
-        for (index, nav_point) in epub_doc.toc.iter().enumerate() {
-            entries.push(TocEntry {
-                title: nav_point.label.clone(),
-                href: nav_point.content.to_string_lossy().to_string(),
-                level: 1,
-                play_order: Some(index as u32 + 1),
-            });
-        }
-        return Ok(entries);
+    let mut raw_entries = extract_epub3_nav_structure(epub_doc);
+
+    if raw_entries.is_empty() {
+        raw_entries = extract_ncx_toc_structure(epub_doc);
     }
 
-    Ok(Vec::new())
+    if raw_entries.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    for entry in &mut raw_entries {
+        hydrate_missing_toc_href(entry);
+    }
+
+    let mut entries = Vec::new();
+    flatten_toc_entries(&raw_entries, None, &mut entries);
+    Ok(entries)
+}
+
+fn extract_ncx_toc_structure(epub_doc: &EpubDocument) -> Vec<RawTocEntry> {
+    if !epub_doc.toc.is_empty() {
+        let mut entries = Vec::new();
+        for nav_point in &epub_doc.toc {
+            entries.push(raw_toc_from_nav_point(nav_point, 1));
+        }
+        return entries;
+    }
+
+    Vec::new()
+}
+
+fn raw_toc_from_nav_point(nav_point: &epub::doc::NavPoint, level: u8) -> RawTocEntry {
+    RawTocEntry {
+        title: nav_point.label.clone(),
+        href: Some(path_to_epub_href(&nav_point.content)),
+        level,
+        children: nav_point
+            .children
+            .iter()
+            .map(|child| raw_toc_from_nav_point(child, level.saturating_add(1)))
+            .collect(),
+    }
+}
+
+fn extract_epub3_nav_structure(epub_doc: &mut EpubDocument) -> Vec<RawTocEntry> {
+    let resources = epub_doc.resources.clone();
+    let mut candidates: Vec<(String, PathBuf, String)> = resources
+        .iter()
+        .filter(|(id, (path, mime))| {
+            let id = id.to_lowercase();
+            let filename = path
+                .file_name()
+                .map(|value| value.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+
+            is_html_mime(mime)
+                && (id.contains("nav")
+                    || filename.contains("nav")
+                    || filename.contains("toc")
+                    || filename.contains("contents"))
+        })
+        .map(|(id, (path, mime))| (id.clone(), path.clone(), mime.clone()))
+        .collect();
+
+    candidates.sort_by_key(|(id, path, _)| {
+        let filename = path
+            .file_name()
+            .map(|value| value.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+
+        if id.eq_ignore_ascii_case("nav") || filename.starts_with("nav.") {
+            0
+        } else if id.contains("toc") || filename.contains("toc") {
+            1
+        } else {
+            2
+        }
+    });
+
+    for (id, path, _) in candidates {
+        if let Some((content, _)) = epub_doc.get_resource_str(&id) {
+            let entries = parse_nav_document(&content, &path);
+            if !entries.is_empty() {
+                return entries;
+            }
+        }
+    }
+
+    Vec::new()
+}
+
+fn is_html_mime(mime: &str) -> bool {
+    matches!(
+        mime,
+        "application/xhtml+xml" | "text/html" | "application/x-dtbncx+xml"
+    ) || mime.ends_with("+html")
+}
+
+fn parse_nav_document(html: &str, base_path: &Path) -> Vec<RawTocEntry> {
+    let document = Html::parse_document(html);
+    let nav_selector = Selector::parse("nav").unwrap();
+    let list_selector = Selector::parse("ol, ul").unwrap();
+
+    let mut fallback_nav = None;
+    for nav in document.select(&nav_selector) {
+        if is_toc_nav(nav.value()) {
+            if let Some(list) = nav.select(&list_selector).next() {
+                return parse_nav_list(list, base_path, 1);
+            }
+        }
+
+        if fallback_nav.is_none() {
+            fallback_nav = Some(nav);
+        }
+    }
+
+    if let Some(nav) = fallback_nav {
+        if let Some(list) = nav.select(&list_selector).next() {
+            return parse_nav_list(list, base_path, 1);
+        }
+    }
+
+    Vec::new()
+}
+
+fn is_toc_nav(element: &scraper::node::Element) -> bool {
+    let epub_type = element.attr("epub:type").unwrap_or_default();
+    let role = element.attr("role").unwrap_or_default();
+    let id = element.attr("id").unwrap_or_default();
+    let class_name = element.attr("class").unwrap_or_default();
+    let combined = format!("{} {} {} {}", epub_type, role, id, class_name).to_lowercase();
+
+    combined.contains("toc") || combined.contains("contents") || combined.contains("doc-toc")
+}
+
+fn parse_nav_list(list: scraper::ElementRef, base_path: &Path, level: u8) -> Vec<RawTocEntry> {
+    let mut entries = Vec::new();
+
+    for child in list.children() {
+        let Some(element) = scraper::ElementRef::wrap(child) else {
+            continue;
+        };
+
+        if element.value().name() == "li" {
+            if let Some(entry) = parse_nav_item(element, base_path, level) {
+                entries.push(entry);
+            }
+        }
+    }
+
+    entries
+}
+
+fn parse_nav_item(item: scraper::ElementRef, base_path: &Path, level: u8) -> Option<RawTocEntry> {
+    let mut title = None;
+    let mut href = None;
+    let mut children = Vec::new();
+
+    for child in item.children() {
+        let Some(element) = scraper::ElementRef::wrap(child) else {
+            continue;
+        };
+
+        match element.value().name() {
+            "a" => {
+                if title.is_none() {
+                    title = normalize_title(&element.text().collect::<String>());
+                }
+
+                if href.is_none() {
+                    href = element
+                        .value()
+                        .attr("href")
+                        .map(|value| resolve_relative_href(base_path, value));
+                }
+            }
+            "span" => {
+                if title.is_none() {
+                    title = normalize_title(&element.text().collect::<String>());
+                }
+            }
+            "ol" | "ul" => {
+                children.extend(parse_nav_list(element, base_path, level.saturating_add(1)));
+            }
+            _ => {}
+        }
+    }
+
+    let title = title.or_else(|| extract_nav_item_text(item))?;
+
+    Some(RawTocEntry {
+        title,
+        href,
+        level,
+        children,
+    })
+}
+
+fn extract_nav_item_text(item: scraper::ElementRef) -> Option<String> {
+    for child in item.children() {
+        let Some(element) = scraper::ElementRef::wrap(child) else {
+            continue;
+        };
+
+        if matches!(element.value().name(), "ol" | "ul") {
+            continue;
+        }
+
+        if let Some(title) = normalize_title(&element.text().collect::<String>()) {
+            return Some(title);
+        }
+    }
+
+    None
+}
+
+fn hydrate_missing_toc_href(entry: &mut RawTocEntry) -> Option<String> {
+    for child in &mut entry.children {
+        hydrate_missing_toc_href(child);
+    }
+
+    if entry.href.is_none() {
+        entry.href = entry
+            .children
+            .iter()
+            .find_map(|child| child.href.as_ref().cloned());
+    }
+
+    entry.href.clone()
+}
+
+fn flatten_toc_entries(
+    raw_entries: &[RawTocEntry],
+    parent_index: Option<usize>,
+    entries: &mut Vec<TocEntry>,
+) {
+    for raw_entry in raw_entries {
+        let current_index = entries.len();
+        entries.push(TocEntry {
+            title: raw_entry.title.clone(),
+            href: raw_entry.href.clone(),
+            level: raw_entry.level,
+            parent_toc_index: parent_index,
+        });
+
+        flatten_toc_entries(&raw_entry.children, Some(current_index), entries);
+    }
 }
 
 // 共享的EPUB解析基础函数，处理load_epub_file和get_epub_info的共同逻辑
 fn extract_epub_chapters_base(
     file_path: &str,
-) -> Result<(EpubDocument, Vec<TocEntry>, HashMap<usize, TocEntry>, usize), String> {
+) -> Result<(EpubDocument, Vec<TocEntry>, Vec<ChapterRef>), String> {
     let mut epub_doc = match EpubDoc::new(file_path) {
         Ok(doc) => doc,
         Err(e) => return Err(format!("Failed to open EPUB file: {}", e)),
     };
 
     let toc_entries = extract_toc_structure(&mut epub_doc).unwrap_or_default();
-    let spine_to_toc = build_spine_toc_mapping(&mut epub_doc, &toc_entries)?;
-    let spine_len = epub_doc.get_num_pages();
+    let chapter_refs = build_chapter_refs(&epub_doc, &toc_entries);
 
-    Ok((epub_doc, toc_entries, spine_to_toc, spine_len))
+    Ok((epub_doc, toc_entries, chapter_refs))
 }
 
 // 主要的EPUB加载命令 - 使用增强策略
 #[tauri::command]
 pub async fn load_epub_file(file_path: String) -> Result<Vec<EpubChapter>, String> {
-    let (mut epub_doc, toc_entries, spine_to_toc, spine_len) =
-        extract_epub_chapters_base(&file_path)?;
+    let (mut epub_doc, toc_entries, chapter_refs) = extract_epub_chapters_base(&file_path)?;
 
     let mut chapters = Vec::new();
 
-    for i in 0..spine_len {
-        epub_doc.set_current_page(i);
+    for chapter_ref in chapter_refs {
+        epub_doc.set_current_page(chapter_ref.spine_index);
 
         let content = match epub_doc.get_current_str() {
             Some((content, _)) => content,
@@ -549,14 +851,15 @@ pub async fn load_epub_file(file_path: String) -> Result<Vec<EpubChapter>, Strin
         };
 
         let (title, confidence) = extract_title_with_confidence(&content, &toc_entries);
-        let (level, parent_index) = determine_chapter_hierarchy(i, &spine_to_toc, &chapters);
-
-        let detection_method = if confidence > 0.9 {
-            "TOC".to_string()
-        } else if confidence > 0.7 {
-            "HTML_HEADING".to_string()
+        let title = if chapter_ref.detection_method == "TOC" {
+            chapter_ref.title.clone()
         } else {
-            "HEURISTIC".to_string()
+            title
+        };
+        let detection_method = if chapter_ref.detection_method == "TOC" {
+            "TOC".to_string()
+        } else {
+            detection_method_from_confidence(confidence)
         };
 
         let processed_html = process_chapter_images(&content, &mut epub_doc);
@@ -566,9 +869,9 @@ pub async fn load_epub_file(file_path: String) -> Result<Vec<EpubChapter>, Strin
             title,
             content: clean_content,
             html_content: processed_html,
-            level,
-            parent_index,
-            toc_entry: spine_to_toc.get(&i).map(|entry| entry.title.clone()),
+            level: chapter_ref.level,
+            parent_index: chapter_ref.parent_index,
+            toc_entry: chapter_ref.toc_entry,
             detection_method,
         });
     }
@@ -583,63 +886,47 @@ pub async fn load_epub_file(file_path: String) -> Result<Vec<EpubChapter>, Strin
 // 获取EPUB基本信息 - 使用增强策略
 #[tauri::command]
 pub async fn get_epub_info(file_path: String) -> Result<Vec<EpubChapterInfo>, String> {
-    let (mut epub_doc, toc_entries, spine_to_toc, spine_len) =
-        extract_epub_chapters_base(&file_path)?;
+    let (mut epub_doc, toc_entries, chapter_refs) = extract_epub_chapters_base(&file_path)?;
 
     let mut chapters_info = Vec::new();
-    let mut temp_chapters: Vec<EpubChapter> = Vec::new(); // 用于层级计算
 
-    for i in 0..spine_len {
-        epub_doc.set_current_page(i);
+    for chapter_ref in chapter_refs {
+        epub_doc.set_current_page(chapter_ref.spine_index);
 
         let content = match epub_doc.get_current_str() {
             Some((content, _)) => content,
             None => {
-                let title = format!("第{}章", i + 1);
                 chapters_info.push(EpubChapterInfo {
-                    title,
-                    index: i,
-                    spine_id: i.to_string(),
-                    level: 1,
-                    parent_index: None,
-                    detection_method: "SPINE_FALLBACK".to_string(),
+                    title: chapter_ref.title,
+                    index: chapter_ref.index,
+                    spine_id: chapter_ref.spine_id,
+                    spine_index: chapter_ref.spine_index,
+                    href: chapter_ref.href,
+                    level: chapter_ref.level,
+                    parent_index: chapter_ref.parent_index,
+                    detection_method: chapter_ref.detection_method,
                 });
                 continue;
             }
         };
 
         let (title, confidence) = extract_title_with_confidence(&content, &toc_entries);
-
-        let (level, parent_index) = determine_chapter_hierarchy(i, &spine_to_toc, &temp_chapters);
-
-        let detection_method = if confidence > 0.9 {
-            "TOC".to_string()
-        } else if confidence > 0.7 {
-            "HTML_HEADING".to_string()
+        let (title, detection_method) = if chapter_ref.detection_method == "TOC" {
+            (chapter_ref.title.clone(), "TOC".to_string())
         } else {
-            "HEURISTIC".to_string()
+            (title, detection_method_from_confidence(confidence))
         };
 
         chapters_info.push(EpubChapterInfo {
             title,
-            index: i,
-            spine_id: i.to_string(),
-            level,
-            parent_index,
-            detection_method: detection_method.clone(),
-        });
-
-        // 更新临时章节并添加到列表
-        let updated_temp_chapter = EpubChapter {
-            title: chapters_info[i].title.clone(),
-            content: String::new(),
-            html_content: String::new(),
-            level,
-            parent_index,
-            toc_entry: spine_to_toc.get(&i).map(|entry| entry.title.clone()),
+            index: chapter_ref.index,
+            spine_id: chapter_ref.spine_id,
+            spine_index: chapter_ref.spine_index,
+            href: chapter_ref.href,
+            level: chapter_ref.level,
+            parent_index: chapter_ref.parent_index,
             detection_method,
-        };
-        temp_chapters.push(updated_temp_chapter);
+        });
     }
 
     if !chapters_info.is_empty() && chapters_info[0].title == "未知章节" {
@@ -655,27 +942,26 @@ pub async fn load_epub_chapter(
     file_path: String,
     chapter_index: usize,
 ) -> Result<EpubChapter, String> {
-    let mut epub_doc = match EpubDoc::new(&file_path) {
-        Ok(doc) => doc,
-        Err(e) => return Err(format!("Failed to open EPUB file: {}", e)),
-    };
+    let (mut epub_doc, toc_entries, chapter_refs) = extract_epub_chapters_base(&file_path)?;
+    let chapter_ref = chapter_refs
+        .get(chapter_index)
+        .cloned()
+        .ok_or_else(|| "Chapter index out of range".to_string())?;
 
-    epub_doc.set_current_page(chapter_index);
+    epub_doc.set_current_page(chapter_ref.spine_index);
 
     let content = match epub_doc.get_current_str() {
         Some((content, _)) => content,
         None => return Err("Failed to get chapter content".to_string()),
     };
 
-    let toc_entries = extract_toc_structure(&mut epub_doc).unwrap_or_default();
     let (title, confidence) = extract_title_with_confidence(&content, &toc_entries);
-
-    let detection_method = if confidence > 0.9 {
-        "TOC".to_string()
+    let (title, detection_method) = if chapter_ref.detection_method == "TOC" {
+        (chapter_ref.title.clone(), "TOC".to_string())
     } else if confidence > 0.7 {
-        "HTML_HEADING".to_string()
+        (title, "HTML_HEADING".to_string())
     } else {
-        "HEURISTIC".to_string()
+        (title, "HEURISTIC".to_string())
     };
 
     let processed_html = process_chapter_images(&content, &mut epub_doc);
@@ -685,9 +971,9 @@ pub async fn load_epub_chapter(
         title,
         content: clean_content,
         html_content: processed_html,
-        level: 1, // 单独加载时默认为1级
-        parent_index: None,
-        toc_entry: None,
+        level: chapter_ref.level,
+        parent_index: chapter_ref.parent_index,
+        toc_entry: chapter_ref.toc_entry,
         detection_method,
     })
 }
