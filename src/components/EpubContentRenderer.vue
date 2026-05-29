@@ -2,10 +2,7 @@
   <div>
     <!-- 渲染模式切换 -->
     <div class="render-mode-switch">
-      <n-radio-group
-        v-model:value="renderMode"
-        size="small"
-      >
+      <n-radio-group v-model:value="renderMode" size="small">
         <n-radio value="html">富文本模式</n-radio>
         <n-radio value="text">纯文本模式</n-radio>
       </n-radio-group>
@@ -53,7 +50,24 @@ const sanitizedHtmlContent = computed(() => {
 
   // 使用DOMPurify清理HTML，但保留图片
   return DOMPurify.sanitize(props.currentChapter.html_content, {
-    ALLOWED_TAGS: ["p", "div", "span", "h1", "h2", "h3", "h4", "h5", "h6", "br", "img", "strong", "em", "u", "i", "b"],
+    ALLOWED_TAGS: [
+      "p",
+      "div",
+      "span",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "br",
+      "img",
+      "strong",
+      "em",
+      "u",
+      "i",
+      "b",
+    ],
     ALLOWED_ATTR: ["src", "alt", "title", "class", "style"],
     ALLOW_DATA_ATTR: false,
   });
@@ -71,17 +85,6 @@ const sanitizedHtmlContent = computed(() => {
   font-size: 16px;
   line-height: 1.8;
   color: var(--n-text-color);
-}
-
-.chapter-content-html :deep(img) {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100%;
-  height: auto;
-  display: block;
-  margin: 16px auto;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .chapter-content-html :deep(p) {

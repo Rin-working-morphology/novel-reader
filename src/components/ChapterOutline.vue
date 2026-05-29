@@ -21,28 +21,32 @@
         class="chapter-tree"
         :data="treeData"
         :selected-keys="selectedKeys"
+        :expanded-keys="expandedKeys"
         :virtual-scroll="true"
         :node-props="getNodeProps"
         :checkable="false"
         block-line
+        @update:expanded-keys="handleExpandedKeysChange"
       />
     </div>
   </n-layout-sider>
 </template>
 
 <script setup lang="ts">
-import { NLayoutSider, NText, NTree } from "naive-ui";
+import { NLayoutSider, NText, NTree, type TreeInst, type TreeOption } from "naive-ui";
 import { BookOutline, Book } from "@vicons/ionicons5";
 import { ref, computed, watch, nextTick } from "vue";
 
 import { renderIcon } from "@/utils/icon";
+import { type Chapter } from "@/services/fileService";
 
-interface Chapter {
-  title: string;
-  content: string;
-  start_pos: number;
-  end_pos: number;
-}
+type TreeKey = string | number;
+type ChapterTreeNode = TreeOption & {
+  key: number;
+  chapterIndex: number;
+  chapterLevel: number;
+  children?: ChapterTreeNode[];
+};
 
 interface Props {
   visible: boolean;
@@ -56,7 +60,8 @@ const emit = defineEmits<{
   "update-visible": [visible: boolean];
 }>();
 
-const treeInstRef = ref<InstanceType<typeof NTree> | null>(null);
+const treeInstRef = ref<TreeInst | null>(null);
+const expandedKeys = ref<TreeKey[]>([]);
 
 const handleCollapsedChange = (collapsed: boolean) => {
   emit("update-visible", !collapsed);
@@ -64,12 +69,11 @@ const handleCollapsedChange = (collapsed: boolean) => {
 
 // 滚动到指定章节
 const scrollToChapter = (index: number) => {
-  if (treeInstRef.value && index >= 20 && index < props.chapters.length) {
-    if (index + 10 < props.chapters.length) {
-      treeInstRef.value.scrollTo({ index: index + 10 });
-    } else {
-      treeInstRef.value.scrollTo({ index: props.chapters.length - 1 });
-    }
+  const visibleIndex = visibleNodeIndexMap.value.get(index) ?? index;
+  if (treeInstRef.value && visibleIndex >= 20 && index < props.chapters.length) {
+    treeInstRef.value.scrollTo({
+      index: Math.min(visibleIndex + 10, visibleNodeCount.value - 1),
+    });
   }
 };
 
@@ -80,6 +84,7 @@ watch(
     if (newIndex >= 0) {
       // 使用nextTick确保DOM更新完成后再滚动
       nextTick(() => {
+        expandCurrentChapterParents(newIndex);
         scrollToChapter(newIndex);
       });
     }
@@ -91,18 +96,132 @@ defineExpose({
   scrollToChapter,
 });
 
-// 将章节数据转换为树形数据
-const treeData = computed(() => {
-  return props.chapters.map((chapter, index) => ({
+const getChapterLevel = (chapter: Chapter) => {
+  const level = Number(chapter.level);
+  return Number.isFinite(level) && level > 0 ? level : 1;
+};
+
+const getParentIndex = (chapter: Chapter, index: number) => {
+  const parentIndex = chapter.parent_index;
+
+  if (
+    typeof parentIndex === "number" &&
+    Number.isInteger(parentIndex) &&
+    parentIndex >= 0 &&
+    parentIndex < index &&
+    parentIndex < props.chapters.length &&
+    parentIndex !== index
+  ) {
+    return parentIndex;
+  }
+
+  return null;
+};
+
+// 将后端输出的 parent_index 扁平目录转换为树形目录
+const treeData = computed<ChapterTreeNode[]>(() => {
+  const nodes = props.chapters.map((chapter, index): ChapterTreeNode => ({
     key: index,
-    label: chapter.title,
-    isLeaf: true,
+    label: chapter.title || `第${index + 1}章`,
+    chapterIndex: index,
+    chapterLevel: getChapterLevel(chapter),
     children: [],
     prefix: () => renderTreeIcon(index),
   }));
+  const roots: ChapterTreeNode[] = [];
+
+  nodes.forEach((node, index) => {
+    const parentIndex = getParentIndex(props.chapters[index], index);
+
+    if (parentIndex !== null && nodes[parentIndex]) {
+      nodes[parentIndex].children?.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  nodes.forEach((node) => {
+    if (!node.children?.length) {
+      node.isLeaf = true;
+      delete node.children;
+    }
+  });
+
+  return roots;
 });
 
 const selectedKeys = computed(() => [props.currentChapterIndex]);
+const expandableKeys = computed<TreeKey[]>(() => {
+  const keys: TreeKey[] = [];
+  const collect = (nodes: ChapterTreeNode[]) => {
+    nodes.forEach((node) => {
+      if (node.children?.length) {
+        keys.push(node.key);
+        collect(node.children);
+      }
+    });
+  };
+
+  collect(treeData.value);
+  return keys;
+});
+
+const visibleNodeIndexMap = computed(() => {
+  const map = new Map<number, number>();
+  const expandedKeySet = new Set(expandedKeys.value);
+  let visibleIndex = 0;
+
+  const collect = (nodes: ChapterTreeNode[]) => {
+    nodes.forEach((node) => {
+      map.set(node.chapterIndex, visibleIndex);
+      visibleIndex += 1;
+
+      if (node.children?.length && expandedKeySet.has(node.key)) {
+        collect(node.children);
+      }
+    });
+  };
+
+  collect(treeData.value);
+  return map;
+});
+
+const visibleNodeCount = computed(() => visibleNodeIndexMap.value.size);
+
+const getAncestorKeys = (index: number) => {
+  const keys: TreeKey[] = [];
+  const visited = new Set<number>();
+  let parentIndex = props.chapters[index] ? getParentIndex(props.chapters[index], index) : null;
+
+  while (parentIndex !== null && !visited.has(parentIndex)) {
+    keys.push(parentIndex);
+    visited.add(parentIndex);
+    parentIndex = props.chapters[parentIndex]
+      ? getParentIndex(props.chapters[parentIndex], parentIndex)
+      : null;
+  }
+
+  return keys;
+};
+
+const expandCurrentChapterParents = (index: number) => {
+  const mergedKeys = new Set(expandedKeys.value);
+  getAncestorKeys(index).forEach((key) => mergedKeys.add(key));
+  expandedKeys.value = Array.from(mergedKeys);
+};
+
+const handleExpandedKeysChange = (keys: TreeKey[]) => {
+  expandedKeys.value = keys;
+};
+
+watch(
+  () => props.chapters,
+  () => {
+    expandedKeys.value = expandableKeys.value;
+    expandCurrentChapterParents(props.currentChapterIndex);
+  },
+  { immediate: true }
+);
 
 // 获取节点属性
 const getNodeProps = (info: any) => {

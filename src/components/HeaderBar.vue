@@ -26,10 +26,15 @@
         data-tauri-drag-region
         v-if="chapters.length > 1"
       >
-        <n-select
-          class="chapter-select"
+        <n-tree-select
+          class="chapter-tree-select"
           :value="currentChapterIndex"
           :options="chapterOptions"
+          :indent="18"
+          :to="'body'"
+          default-expand-all
+          filterable
+          placeholder="选择章节"
           aria-label="章节导航"
           @update:value="handleJumpToChapter"
         />
@@ -65,12 +70,12 @@
 </template>
 
 <script setup lang="ts">
-import { NLayoutHeader, NButton, NSelect, NDropdown, NIcon } from "naive-ui";
+import { computed } from "vue";
+import { NLayoutHeader, NButton, NTreeSelect, NDropdown, NIcon, type TreeSelectOption } from "naive-ui";
 import { SunnyOutline, MoonOutline, Close, SettingsOutline } from "@vicons/ionicons5";
 import { renderIcon } from "../utils/icon";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Chapter } from "../services/fileService";
-import { computed } from "vue";
 
 interface Props {
   theme: string;
@@ -101,15 +106,54 @@ const dropDownOptions = computed(() => [
   },
 ]);
 
-const chapterOptions = computed(() => {
-  return props.chapters.map((chapter, index) => ({
-    label: chapter.title,
-    value: index,
+const getParentIndex = (chapter: Chapter, index: number) => {
+  const parentIndex = chapter.parent_index;
+
+  if (
+    typeof parentIndex === "number" &&
+    Number.isInteger(parentIndex) &&
+    parentIndex >= 0 &&
+    parentIndex < index &&
+    parentIndex < props.chapters.length &&
+    parentIndex !== index
+  ) {
+    return parentIndex;
+  }
+
+  return null;
+};
+
+const chapterOptions = computed<TreeSelectOption[]>(() => {
+  const nodes = props.chapters.map((chapter, index): TreeSelectOption => ({
+    key: index,
+    label: chapter.title || `第${index + 1}章`,
+    children: [],
   }));
+  const roots: TreeSelectOption[] = [];
+
+  nodes.forEach((node, index) => {
+    const parentIndex = getParentIndex(props.chapters[index], index);
+
+    if (parentIndex !== null && nodes[parentIndex]) {
+      nodes[parentIndex].children?.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  nodes.forEach((node) => {
+    if (!node.children?.length) {
+      delete node.children;
+    }
+  });
+
+  return roots;
 });
 
-const handleJumpToChapter = (index: number) => {
-  emit("chapter-changed", index);
+const handleJumpToChapter = (value: string | number | Array<string | number> | null) => {
+  if (typeof value === "number") {
+    emit("chapter-changed", value);
+  }
 };
 
 const close = async () => {
@@ -157,11 +201,11 @@ const handleMenuSelect = (key: string) => {
   max-width: 320px;
 }
 
-.chapter-select {
+.chapter-tree-select {
   width: 100%;
 }
 
-.chapter-select :deep(.n-base-selection) {
+.chapter-tree-select :deep(.n-base-selection) {
   --n-height: var(--chapter-nav-height);
   --n-border-radius: var(--chapter-nav-radius);
   --n-border: 1px solid var(--chapter-nav-border);
@@ -176,21 +220,21 @@ const handleMenuSelect = (key: string) => {
   transition: var(--chapter-nav-transition);
 }
 
-.chapter-select :deep(.n-base-selection:hover) {
+.chapter-tree-select :deep(.n-base-selection:hover) {
   --n-color: var(--chapter-nav-surface-hover);
 }
 
-.chapter-select :deep(.n-base-selection-label) {
+.chapter-tree-select :deep(.n-base-selection-label) {
   padding-inline: var(--chapter-nav-x);
 }
 
-.chapter-select :deep(.n-base-selection-input),
-.chapter-select :deep(.n-base-selection-placeholder) {
+.chapter-tree-select :deep(.n-base-selection-input),
+.chapter-tree-select :deep(.n-base-selection-placeholder) {
   font-weight: 500;
   letter-spacing: 0;
 }
 
-.chapter-select :deep(.n-base-selection-placeholder) {
+.chapter-tree-select :deep(.n-base-selection-placeholder) {
   color: var(--chapter-nav-muted);
 }
 
@@ -211,7 +255,7 @@ const handleMenuSelect = (key: string) => {
 
 @media (prefers-reduced-motion: reduce) {
   .menu-button,
-  .chapter-select :deep(.n-base-selection) {
+  .chapter-tree-select :deep(.n-base-selection) {
     transition: none;
   }
 
